@@ -482,7 +482,7 @@ export default function InboxPage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <div style={{ flexShrink: 0 }}>
         <PageHeader
           title="Boite de reception"
@@ -522,7 +522,7 @@ export default function InboxPage() {
       </div>
 
       {tab === 'messages' && (
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '16px 32px 24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', padding: '16px 32px 32px' }}>
           {dmPlatforms.length > 0 && (
             <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', flexShrink: 0 }}>
               {dmPlatforms.map((platform) => (
@@ -549,14 +549,14 @@ export default function InboxPage() {
             ))}
           </div>
 
-          <div style={{ display: 'flex', gap: 16, flex: 1, overflow: 'hidden' }}>
-            <div style={{ width: 340, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap', flexShrink: 0 }}>
                 {DM_FILTERS.map(f => (
                   <button key={f.key} onClick={() => setDmFilter(f.key)} style={{ padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 500, cursor: 'pointer', background: dmFilter === f.key ? 'rgba(108,99,255,0.15)' : 'transparent', border: `1px solid ${dmFilter === f.key ? 'rgba(108,99,255,0.3)' : 'var(--border)'}`, color: dmFilter === f.key ? 'var(--accent-2)' : 'var(--text-3)' }}>{f.label}</button>
                 ))}
               </div>
-              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10 }}>
                 {loadingMessages ? <Spinner /> : filteredDms.map(dm => (
                   <div
                     key={dm.id}
@@ -582,13 +582,13 @@ export default function InboxPage() {
               </div>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+            <div style={{ width: '100%' }}>
               {!selectedDm ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-3)' }}>Selectionnez un message</div>
               ) : (
                 <>
-                <div style={{ height: '100%', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 260px', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-                  <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <div style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 12 }}>
+                  <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                     <div style={{ height: 66, padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                         <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg, #22c55e, #3b82f6)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flexShrink: 0 }}>{selectedDm.avatar}</div>
@@ -597,8 +597,12 @@ export default function InboxPage() {
                           <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Actif via {platformEmoji(selectedDm.platform)} {selectedDm.platform}</div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         {selectedDm.analyzed && selectedDm.sentiment && <LabelBadge label={selectedDm.sentiment} type={selectedDm.sentiment} />}
+                        {selectedDm.isQuestion && <LabelBadge label="Question" />}
+                        {selectedDm.isLead && <LabelBadge label="Lead" />}
+                        {selectedDm.isToxic && <LabelBadge label="Toxique" type="toxic" />}
+                        {selectedDm.isSpam && <LabelBadge label="Spam" type="spam" />}
                         {!selectedDm.analyzed && (
                           <Btn size="sm" variant="ghost" onClick={() => handleAnalyzeDm(selectedDm)} disabled={analyzingId === selectedDm.id}>
                             {analyzingId === selectedDm.id ? <Spinner /> : 'Analyser'}
@@ -607,7 +611,7 @@ export default function InboxPage() {
                       </div>
                     </div>
 
-                    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '22px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ padding: '28px 28px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
                       <div style={{ alignSelf: 'center', color: 'var(--text-3)', fontSize: 11, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 10px' }}>
                         {formatInboxTime(selectedDm.timestamp)}
                       </div>
@@ -628,16 +632,24 @@ export default function InboxPage() {
                         {validReplyExample(selectedDm)}
                       </div>
                       <div style={{ alignSelf: 'flex-end', color: 'var(--text-3)', fontSize: 11, marginTop: -8 }}>Exemple de reponse valide dans la fenetre 24h</div>
+                      {selectedDm.analyzed && (
+                        <div style={{ alignSelf: 'flex-end', display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '78%' }}>
+                          {selectedDm.sentiment && <LabelBadge label={selectedDm.sentiment} type={selectedDm.sentiment} />}
+                          <LabelBadge label={selectedDm.isQuestion ? 'Question' : 'Pas une question'} />
+                          <LabelBadge label={selectedDm.isLead ? 'Lead' : 'Non lead'} />
+                          {selectedDm.isToxic && <LabelBadge label="Toxique" type="toxic" />}
+                        </div>
+                      )}
                     </div>
 
-                    <div style={{ padding: 14, borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
+                    <div style={{ padding: 18, borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                         <textarea
                           value={replyText}
                           onChange={e => setReplyText(e.target.value)}
                           placeholder={selectedDm.can_reply === false ? 'Reponse bloquee par la politique Messenger' : 'Message...'}
                           disabled={selectedDm.can_reply === false}
-                          style={{ minHeight: 46, maxHeight: 120, resize: 'vertical', borderRadius: 16, marginBottom: 0, flex: 1 }}
+                          style={{ minHeight: 84, resize: 'vertical', borderRadius: 16, marginBottom: 0, flex: 1, fontSize: 14, lineHeight: 1.5 }}
                         />
                         <Btn size="sm" disabled={!replyText.trim() || sendingReply || selectedDm.can_reply === false} onClick={handleSendReply}>
                           {sendingReply ? 'Envoi...' : 'Envoyer'}
@@ -646,7 +658,7 @@ export default function InboxPage() {
                     </div>
                   </div>
 
-                  <div style={{ borderLeft: '1px solid var(--border)', padding: 14, overflowY: 'auto', background: 'rgba(255,255,255,0.015)' }}>
+                  <div style={{ display: 'none' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '8px 0 16px', borderBottom: '1px solid var(--border)', marginBottom: 14 }}>
                       <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, #22c55e, #3b82f6)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 18 }}>{selectedDm.avatar}</div>
                       <div style={{ fontWeight: 700, textAlign: 'center' }}>{selectedDm.author}</div>
