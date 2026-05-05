@@ -7,7 +7,6 @@ import { useAppStore } from '../store'
 
 function logInboxError(message: unknown, options?: unknown) {
   console.warn('[Inbox]', message, options || '')
-  toast.error(String(message || 'Erreur inbox'), typeof options === 'object' && options ? options as any : undefined)
 }
 
 type SentimentType = 'positive' | 'negative' | 'neutral' | 'spam' | 'toxic' | 'female'
