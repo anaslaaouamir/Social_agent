@@ -586,7 +586,102 @@ export default function InboxPage() {
               {!selectedDm ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-3)' }}>Selectionnez un message</div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <>
+                <div style={{ height: '100%', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 260px', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+                  <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                    <div style={{ height: 66, padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                        <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg, #22c55e, #3b82f6)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flexShrink: 0 }}>{selectedDm.avatar}</div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedDm.author}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Actif via {platformEmoji(selectedDm.platform)} {selectedDm.platform}</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {selectedDm.analyzed && selectedDm.sentiment && <LabelBadge label={selectedDm.sentiment} type={selectedDm.sentiment} />}
+                        {!selectedDm.analyzed && (
+                          <Btn size="sm" variant="ghost" onClick={() => handleAnalyzeDm(selectedDm)} disabled={analyzingId === selectedDm.id}>
+                            {analyzingId === selectedDm.id ? <Spinner /> : 'Analyser'}
+                          </Btn>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '22px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      <div style={{ alignSelf: 'center', color: 'var(--text-3)', fontSize: 11, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 10px' }}>
+                        {formatInboxTime(selectedDm.timestamp)}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, maxWidth: '78%' }}>
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{selectedDm.avatar}</div>
+                        <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '18px 18px 18px 6px', padding: '11px 14px', lineHeight: 1.55, fontSize: 14, color: 'var(--text)' }}>
+                          {selectedDm.text}
+                        </div>
+                      </div>
+
+                      {messengerPolicyHint(selectedDm) && (
+                        <div style={{ alignSelf: 'center', maxWidth: 560, padding: '10px 12px', borderRadius: 10, background: 'rgba(249,115,22,0.10)', border: '1px solid rgba(249,115,22,0.25)', color: 'var(--text-2)', fontSize: 12, lineHeight: 1.5 }}>
+                          {messengerPolicyHint(selectedDm)}
+                        </div>
+                      )}
+
+                      <div style={{ alignSelf: 'flex-end', maxWidth: '78%', background: 'linear-gradient(135deg, #6c63ff, #4f8cff)', color: 'white', borderRadius: '18px 18px 6px 18px', padding: '11px 14px', lineHeight: 1.55, fontSize: 14, boxShadow: '0 10px 24px rgba(79,140,255,0.18)' }}>
+                        {validReplyExample(selectedDm)}
+                      </div>
+                      <div style={{ alignSelf: 'flex-end', color: 'var(--text-3)', fontSize: 11, marginTop: -8 }}>Exemple de reponse valide dans la fenetre 24h</div>
+                    </div>
+
+                    <div style={{ padding: 14, borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                        <textarea
+                          value={replyText}
+                          onChange={e => setReplyText(e.target.value)}
+                          placeholder={selectedDm.can_reply === false ? 'Reponse bloquee par la politique Messenger' : 'Message...'}
+                          disabled={selectedDm.can_reply === false}
+                          style={{ minHeight: 46, maxHeight: 120, resize: 'vertical', borderRadius: 16, marginBottom: 0, flex: 1 }}
+                        />
+                        <Btn size="sm" disabled={!replyText.trim() || sendingReply || selectedDm.can_reply === false} onClick={handleSendReply}>
+                          {sendingReply ? 'Envoi...' : 'Envoyer'}
+                        </Btn>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ borderLeft: '1px solid var(--border)', padding: 14, overflowY: 'auto', background: 'rgba(255,255,255,0.015)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '8px 0 16px', borderBottom: '1px solid var(--border)', marginBottom: 14 }}>
+                      <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, #22c55e, #3b82f6)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 18 }}>{selectedDm.avatar}</div>
+                      <div style={{ fontWeight: 700, textAlign: 'center' }}>{selectedDm.author}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{platformEmoji(selectedDm.platform)} {selectedDm.platform}</div>
+                    </div>
+
+                    {selectedDm.suggestedReply && (
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Suggestion IA</div>
+                        <div style={{ background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.18)', borderRadius: 10, padding: '10px 12px', fontSize: 12, lineHeight: 1.5, marginBottom: 8 }}>{selectedDm.suggestedReply}</div>
+                        <Btn size="sm" variant="ghost" onClick={() => setReplyText(selectedDm.suggestedReply || '')}>Utiliser</Btn>
+                      </div>
+                    )}
+
+                    {selectedDm.analyzed && (
+                      <div>
+                        <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Analyse IA</div>
+                        <div style={{ display: 'grid', gap: 8 }}>
+                          {[
+                            { label: 'Sentiment', value: selectedDm.sentiment, type: selectedDm.sentiment },
+                            { label: 'Question', value: selectedDm.isQuestion ? 'Oui' : 'Non' },
+                            { label: 'Lead', value: selectedDm.isLead ? 'Oui' : 'Non' },
+                            { label: 'Toxique', value: selectedDm.isToxic ? 'Oui' : 'Non' },
+                          ].map(item => (
+                            <div key={item.label} style={{ padding: '8px 10px', background: 'var(--bg-2)', borderRadius: 8 }}>
+                              <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 3 }}>{item.label}</div>
+                              {item.type ? <LabelBadge label={String(item.value)} type={item.type} /> : <div style={{ fontSize: 13, fontWeight: 600 }}>{item.value}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: 'none' }}>
                   <Card>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                       <div>
@@ -659,6 +754,7 @@ export default function InboxPage() {
                     </div>
                   </Card>
                 </div>
+                </>
               )}
             </div>
           </div>
