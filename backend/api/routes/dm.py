@@ -106,6 +106,26 @@ def _messenger_window_expired_detail() -> str:
     )
 
 
+def _normalize_conversation_messages(account: SocialAccount, raw_messages: list[dict]) -> list[dict]:
+    normalized: list[dict] = []
+    for raw in sorted(raw_messages, key=lambda item: item.get("created_time") or item.get("timestamp") or ""):
+        sender = raw.get("from") or {}
+        sender_id = str(sender.get("id") or "").strip()
+        text = _message_text(raw)
+        if not text:
+            continue
+        is_from_page = bool(sender_id and sender_id == str(account.account_id))
+        normalized.append({
+            "id": str(raw.get("id") or f"{account.id}:{raw.get('created_time') or len(normalized)}"),
+            "text": text,
+            "timestamp": raw.get("created_time") or raw.get("timestamp"),
+            "author": sender.get("name") or sender.get("username") or (account.account_name if is_from_page else "Client"),
+            "sender_id": sender_id,
+            "is_from_page": is_from_page,
+        })
+    return normalized
+
+
 @router.post("/respond")
 async def dm_respond(payload: dict, current_user: User = Depends(get_current_user)):
     """Generate AI chatbot response for a DM (multilingual FR/AR/EN)."""
@@ -162,6 +182,7 @@ def _normalize_instagram_conversation(account: SocialAccount, conversation: dict
         "sender_id": recipient_id,
         "sender_name": sender.get("username") or sender.get("name") or "Instagram user",
         "message": message,
+        "messages": _normalize_conversation_messages(account, messages),
         "timestamp": timestamp,
         "recipient_id": recipient_id,
         "can_reply": can_reply,
@@ -219,6 +240,7 @@ async def _fetch_instagram_conversations(account: SocialAccount) -> list[dict]:
 
 def _normalize_facebook_conversation(account: SocialAccount, conversation: dict) -> dict:
     participants = ((conversation.get("participants") or {}).get("data") or [])
+    messages = _edge_items(conversation.get("messages"))
     other = next((p for p in participants if p.get("id") != account.account_id), participants[0] if participants else {})
     recipient_id = other.get("id") or ""
     is_window_open = _is_recent_enough_for_messenger(conversation.get("updated_time"))
@@ -233,6 +255,7 @@ def _normalize_facebook_conversation(account: SocialAccount, conversation: dict)
         "sender_id": recipient_id,
         "sender_name": other.get("name") or "Facebook user",
         "message": _message_text(conversation) or conversation.get("snippet") or "",
+        "messages": _normalize_conversation_messages(account, messages),
         "timestamp": conversation.get("updated_time"),
         "recipient_id": recipient_id,
         "can_reply": can_reply,
@@ -461,6 +484,25 @@ async def get_live_inbox(
                 item["is_toxic"] = False
                 item["is_question"] = False
                 item["is_lead"] = False
+
+        for message in item.get("messages") or []:
+            if message.get("is_from_page") or not message.get("text"):
+                continue
+            try:
+                analysis = await nlp_pipeline.process(message["text"])
+                message["label"] = "spam" if analysis.is_spam else "toxic" if analysis.is_toxic else analysis.sentiment
+                message["sentiment_score"] = analysis.sentiment_score
+                message["is_spam"] = analysis.is_spam
+                message["is_toxic"] = analysis.is_toxic
+                message["is_question"] = "?" in message["text"]
+                message["is_lead"] = any(token in message["text"].lower() for token in ("prix", "price", "tarif", "commande", "devis", "buy", "acheter"))
+            except Exception:
+                message["label"] = "neutral"
+                message["sentiment_score"] = 0.0
+                message["is_spam"] = False
+                message["is_toxic"] = False
+                message["is_question"] = False
+                message["is_lead"] = False
 
     items.sort(key=lambda item: item.get("timestamp") or "", reverse=True)
     return {"items": items, "errors": errors}

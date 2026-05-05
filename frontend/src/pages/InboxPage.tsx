@@ -26,6 +26,7 @@ interface DM {
   author: string
   platform: string
   text: string
+  messages?: ConversationMessage[]
   sourceType?: 'dm' | 'comment' | 'post'
   sentiment?: SentimentType
   sentimentScore?: number
@@ -38,6 +39,20 @@ interface DM {
   timestamp: string
   analyzed?: boolean
   avatar?: string
+}
+
+interface ConversationMessage {
+  id: string
+  text: string
+  timestamp?: string
+  author?: string
+  isFromPage?: boolean
+  label?: SentimentType
+  sentimentScore?: number
+  isQuestion?: boolean
+  isLead?: boolean
+  isToxic?: boolean
+  isSpam?: boolean
 }
 
 interface PostComment {
@@ -116,6 +131,21 @@ function validReplyExample(dm: DM | null) {
     return "Bonjour, merci pour votre message. Oui, nous pouvons vous aider. Pouvez-vous préciser les fonctionnalités juridiques souhaitées ?"
   }
   return "Bonjour, merci pour votre message. Je vous aide avec plaisir, pouvez-vous me donner plus de details ?"
+}
+
+function MessageAnalysisBadges({ message }: { message: ConversationMessage }) {
+  if (message.isFromPage) return null
+  const hasAnalysis = message.label || message.isQuestion || message.isLead || message.isToxic || message.isSpam
+  if (!hasAnalysis) return null
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+      {message.label && <LabelBadge label={message.label} type={message.label} />}
+      {message.isQuestion && <LabelBadge label="Question" />}
+      {message.isLead && <LabelBadge label="Lead" />}
+      {message.isToxic && <LabelBadge label="Toxique" type="toxic" />}
+      {message.isSpam && <LabelBadge label="Spam" type="spam" />}
+    </div>
+  )
 }
 
 function formatPlatformErrors(errors: any[] | undefined, label: string) {
@@ -205,6 +235,19 @@ export default function InboxPage() {
         author: item.sender_name || 'Utilisateur',
         platform: item.platform,
         text: item.message || '',
+        messages: (item.messages || []).map((message: any) => ({
+          id: String(message.id),
+          text: message.text || '',
+          timestamp: message.timestamp || '',
+          author: message.author || '',
+          isFromPage: !!message.is_from_page,
+          label: message.label || undefined,
+          sentimentScore: message.sentiment_score ?? 0,
+          isQuestion: !!message.is_question,
+          isLead: !!message.is_lead,
+          isToxic: !!message.is_toxic,
+          isSpam: !!message.is_spam,
+        })),
         sourceType: item.source_type || 'dm',
         sentiment: item.label || item.sentiment || 'neutral',
         sentimentScore: item.sentiment_score ?? 0,
@@ -481,6 +524,24 @@ export default function InboxPage() {
     leads: dms.filter(m => m.isLead).length,
   }
 
+  const selectedConversationMessages: ConversationMessage[] = selectedDm?.messages?.length
+    ? selectedDm.messages
+    : selectedDm
+      ? [{
+          id: selectedDm.id,
+          text: selectedDm.text,
+          timestamp: selectedDm.timestamp,
+          author: selectedDm.author,
+          isFromPage: false,
+          label: selectedDm.sentiment,
+          sentimentScore: selectedDm.sentimentScore,
+          isQuestion: selectedDm.isQuestion,
+          isLead: selectedDm.isLead,
+          isToxic: selectedDm.isToxic,
+          isSpam: selectedDm.isSpam,
+        }]
+      : []
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <div style={{ flexShrink: 0 }}>
@@ -549,14 +610,14 @@ export default function InboxPage() {
             ))}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '360px minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', position: 'sticky', top: 12 }}>
               <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap', flexShrink: 0 }}>
                 {DM_FILTERS.map(f => (
                   <button key={f.key} onClick={() => setDmFilter(f.key)} style={{ padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 500, cursor: 'pointer', background: dmFilter === f.key ? 'rgba(108,99,255,0.15)' : 'transparent', border: `1px solid ${dmFilter === f.key ? 'rgba(108,99,255,0.3)' : 'var(--border)'}`, color: dmFilter === f.key ? 'var(--accent-2)' : 'var(--text-3)' }}>{f.label}</button>
                 ))}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {loadingMessages ? <Spinner /> : filteredDms.map(dm => (
                   <div
                     key={dm.id}
@@ -568,7 +629,7 @@ export default function InboxPage() {
                         <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{dm.avatar}</div>
                         <span style={{ fontSize: 12, fontWeight: 600 }}>{dm.author}</span>
                       </div>
-                      <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{dm.timestamp ? new Date(dm.timestamp).toLocaleString('fr-FR') : ''}</span>
+                      <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{formatInboxTime(dm.timestamp)}</span>
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>{dm.text}</div>
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -582,7 +643,7 @@ export default function InboxPage() {
               </div>
             </div>
 
-            <div style={{ width: '100%' }}>
+            <div style={{ width: '100%', minWidth: 0 }}>
               {!selectedDm ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-3)' }}>Selectionnez un message</div>
               ) : (
@@ -615,12 +676,32 @@ export default function InboxPage() {
                       <div style={{ alignSelf: 'center', color: 'var(--text-3)', fontSize: 11, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 10px' }}>
                         {formatInboxTime(selectedDm.timestamp)}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, maxWidth: '78%' }}>
-                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{selectedDm.avatar}</div>
-                        <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '18px 18px 18px 6px', padding: '11px 14px', lineHeight: 1.55, fontSize: 14, color: 'var(--text)' }}>
-                          {selectedDm.text}
+                      {selectedConversationMessages.map((message) => (
+                        <div
+                          key={message.id}
+                          style={{
+                            alignSelf: message.isFromPage ? 'flex-end' : 'flex-start',
+                            display: 'flex',
+                            alignItems: 'flex-end',
+                            gap: 8,
+                            maxWidth: '78%',
+                            flexDirection: message.isFromPage ? 'row-reverse' : 'row',
+                          }}
+                        >
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: message.isFromPage ? 'linear-gradient(135deg, #6c63ff, #4f8cff)' : 'var(--bg-3)', color: message.isFromPage ? 'white' : 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                            {message.isFromPage ? 'A' : selectedDm.avatar}
+                          </div>
+                          <div>
+                            <div style={{ background: message.isFromPage ? 'linear-gradient(135deg, #6c63ff, #4f8cff)' : 'var(--bg-2)', color: message.isFromPage ? 'white' : 'var(--text)', border: message.isFromPage ? 'none' : '1px solid var(--border)', borderRadius: message.isFromPage ? '18px 18px 6px 18px' : '18px 18px 18px 6px', padding: '11px 14px', lineHeight: 1.55, fontSize: 14 }}>
+                              {message.text}
+                            </div>
+                            {!message.isFromPage && <MessageAnalysisBadges message={message} />}
+                            <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 4, textAlign: message.isFromPage ? 'right' : 'left' }}>
+                              {formatInboxTime(message.timestamp)}
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      ))}
 
                       {messengerPolicyHint(selectedDm) && (
                         <div style={{ alignSelf: 'center', maxWidth: 560, padding: '10px 12px', borderRadius: 10, background: 'rgba(249,115,22,0.10)', border: '1px solid rgba(249,115,22,0.25)', color: 'var(--text-2)', fontSize: 12, lineHeight: 1.5 }}>
@@ -628,17 +709,13 @@ export default function InboxPage() {
                         </div>
                       )}
 
-                      <div style={{ alignSelf: 'flex-end', maxWidth: '78%', background: 'linear-gradient(135deg, #6c63ff, #4f8cff)', color: 'white', borderRadius: '18px 18px 6px 18px', padding: '11px 14px', lineHeight: 1.55, fontSize: 14, boxShadow: '0 10px 24px rgba(79,140,255,0.18)' }}>
-                        {validReplyExample(selectedDm)}
-                      </div>
-                      <div style={{ alignSelf: 'flex-end', color: 'var(--text-3)', fontSize: 11, marginTop: -8 }}>Exemple de reponse valide dans la fenetre 24h</div>
-                      {selectedDm.analyzed && (
-                        <div style={{ alignSelf: 'flex-end', display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '78%' }}>
-                          {selectedDm.sentiment && <LabelBadge label={selectedDm.sentiment} type={selectedDm.sentiment} />}
-                          <LabelBadge label={selectedDm.isQuestion ? 'Question' : 'Pas une question'} />
-                          <LabelBadge label={selectedDm.isLead ? 'Lead' : 'Non lead'} />
-                          {selectedDm.isToxic && <LabelBadge label="Toxique" type="toxic" />}
-                        </div>
+                      {!selectedDm.messages?.some(message => message.isFromPage) && (
+                        <>
+                          <div style={{ alignSelf: 'flex-end', maxWidth: '78%', background: 'linear-gradient(135deg, #6c63ff, #4f8cff)', color: 'white', borderRadius: '18px 18px 6px 18px', padding: '11px 14px', lineHeight: 1.55, fontSize: 14, boxShadow: '0 10px 24px rgba(79,140,255,0.18)' }}>
+                            {validReplyExample(selectedDm)}
+                          </div>
+                          <div style={{ alignSelf: 'flex-end', color: 'var(--text-3)', fontSize: 11, marginTop: -8 }}>Exemple de reponse valide dans la fenetre 24h</div>
+                        </>
                       )}
                     </div>
 
