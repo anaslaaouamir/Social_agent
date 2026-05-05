@@ -632,7 +632,7 @@ export default function InboxPage() {
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>{dm.text}</div>
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                      <span style={{ fontSize: 10 }}>{platformEmoji(dm.platform)}</span>
+                      <PlatformIcon platform={dm.platform} size={14} />
                       {dm.sourceType && dm.sourceType !== 'dm' && <LabelBadge label={dm.sourceType} />}
                       {dm.analyzed && dm.sentiment && <LabelBadge label={dm.sentiment} type={dm.sentiment} />}
                       {dm.isLead && <LabelBadge label="Lead" />}
@@ -654,7 +654,7 @@ export default function InboxPage() {
                         <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg, #22c55e, #3b82f6)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flexShrink: 0 }}>{selectedDm.avatar}</div>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedDm.author}</div>
-                          <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Actif via {platformEmoji(selectedDm.platform)} {selectedDm.platform}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 6 }}>Actif via <PlatformIcon platform={selectedDm.platform} size={14} /> {selectedDm.platform}</div>
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -738,7 +738,7 @@ export default function InboxPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '8px 0 16px', borderBottom: '1px solid var(--border)', marginBottom: 14 }}>
                       <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, #22c55e, #3b82f6)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 18 }}>{selectedDm.avatar}</div>
                       <div style={{ fontWeight: 700, textAlign: 'center' }}>{selectedDm.author}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{platformEmoji(selectedDm.platform)} {selectedDm.platform}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 6 }}><PlatformIcon platform={selectedDm.platform} size={14} /> {selectedDm.platform}</div>
                     </div>
 
                     {selectedDm.suggestedReply && (
@@ -774,7 +774,7 @@ export default function InboxPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                       <div>
                         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 2 }}>{selectedDm.author}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-3)' }}>via {platformEmoji(selectedDm.platform)} {selectedDm.platform}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 6 }}>via <PlatformIcon platform={selectedDm.platform} size={14} /> {selectedDm.platform}</div>
                         {selectedDm.sourceType && selectedDm.sourceType !== 'dm' && (
                           <div style={{ marginTop: 6 }}>
                             <LabelBadge label={`Source: ${selectedDm.sourceType}`} />
@@ -871,7 +871,7 @@ export default function InboxPage() {
                   style={{ padding: '12px 14px', borderRadius: 10, cursor: 'pointer', background: selectedPost?.id === post.id ? 'rgba(108,99,255,0.1)' : 'var(--bg-1)', border: `1px solid ${selectedPost?.id === post.id ? 'rgba(108,99,255,0.3)' : 'var(--border)'}` }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 12 }}>{platformEmoji(post.platform)}</span>
+                    <PlatformIcon platform={post.platform} size={14} />
                     <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{post.timestamp ? new Date(post.timestamp).toLocaleString('fr-FR') : ''}</span>
                   </div>
                   <div style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', marginBottom: 8, lineHeight: 1.4 }}>{post.text}</div>
@@ -912,7 +912,7 @@ export default function InboxPage() {
               <>
                 <div style={{ marginBottom: 16, padding: '12px 14px', background: 'var(--bg-1)', borderRadius: 10, border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>Publication {platformEmoji(selectedPost.platform)}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>Publication <PlatformIcon platform={selectedPost.platform} size={16} /></span>
                     <div style={{ display: 'flex', gap: 10, fontSize: 12, color: 'var(--text-3)' }}>
                       <span>❤ {selectedPost.likes}</span>
                       <span>💬 {comments.length} commentaires</span>

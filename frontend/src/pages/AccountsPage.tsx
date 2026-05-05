@@ -221,7 +221,9 @@ export default function AccountsPage() {
                   transition: 'all 0.15s',
                 }}
               >
-                <div style={{ fontSize: 26, marginBottom: 6 }}>{platform.icon}</div>
+                <div style={{ marginBottom: 6 }}>
+                  <PlatformIcon platform={platform.id} size={28} />
+                </div>
                 <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{platform.label}</div>
                 <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 8 }}>{platform.desc}</div>
                 {isConnecting ? (

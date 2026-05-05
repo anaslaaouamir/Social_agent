@@ -2,6 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useAuthStore, useAppStore, useNotifStore } from '../../store'
 import { accountsApi, alertsApi } from '../../lib/api'
+import { PlatformIcon } from '../ui'
 
 const NAV = [
   { to: '/dashboard', icon: '◈', label: 'Dashboard' },
@@ -138,7 +139,7 @@ export default function AppLayout() {
                 </div>
                 {accounts.slice(0, 3).map((acc: any) => (
                   <div key={acc.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                    <span style={{ fontSize: 12 }}>{platformEmoji(acc.platform)}</span>
+                    <PlatformIcon platform={acc.platform} size={14} />
                     <span style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {acc.account_name}
                     </span>
