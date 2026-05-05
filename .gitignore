@@ -1,0 +1,62 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+backend/.venv/
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+coverage/
+frontend/coverage/
+
+# Local data, generated models, and large artifacts
+data/
+backend/data/
+spark/checkpoints/
+spark/.ipynb_checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.bin
+*.safetensors
+
+# Docker / runtime storage
+media/
+backend/media/
+*.log
+logs/
+celerybeat-schedule*
+backend/celerybeat-schedule*
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+pytest-cache-files-*/
+backend/pytest-cache-files-*/

@@ -1,0 +1,31 @@
+.env
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+pytest-cache-files-*/
+
+# Local data, trained models and generated runtime state are mounted or rebuilt,
+# not copied into the application image.
+data/
+media/
+*.db
+*.sqlite
+*.sqlite3
+*.pkl
+*.pt
+*.safetensors
+*.bin
+*.parquet
+*.zip
+
+# Celery runtime files
+celerybeat-schedule*
+
+# Editor/OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
