@@ -16,13 +16,19 @@ from sqlalchemy import select, and_
 from pydantic import BaseModel
 from core.config import get_settings
 from core.database import get_db
-from models.domain import User, Post, PostStatus, ContentType, SocialAccount, Platform
+from models.domain import AlertSeverity, User, Post, PostStatus, ContentType, SocialAccount, Platform
 from api.auth_utils import get_current_user
 from services.facebook_graph import FacebookGraphService
 from services.instagram_graph import InstagramService
 from services.linkedIn_graph import LinkedInGraphService
 from services.ml_engagement import engagement_predictor
 from services.nlp_pipeline import nlp_pipeline
+from services.social_activity_store import (
+    ensure_activity_alert,
+    ensure_negative_comment_alert,
+    persist_live_comment,
+    persist_live_post,
+)
 from services.tiktok_graph import TikTokGraphService
 from services.threads_graph import ThreadsGraphService
 from services.twitter_graph import TwitterGraphService
@@ -230,14 +236,26 @@ def _enrich_live_post(account: SocialAccount, post: dict) -> dict:
         {
             "predicted_engagement_rate": prediction.predicted_engagement_rate,
             "predicted_engagement_percent": round(prediction.predicted_engagement_rate * 100, 2),
-            "predicted_reach": prediction.predicted_reach,
-            "engagement_confidence": prediction.confidence,
-            "best_posting_hour": prediction.best_hour,
-            "best_posting_day": prediction.best_day,
-            "recommended_content_type": prediction.recommended_content_type,
         }
     )
     return post
+
+
+async def _persist_live_post_dict(db: AsyncSession, account: SocialAccount, post: dict) -> Post:
+    return await persist_live_post(
+        db,
+        account_id=account.id,
+        platform_post_id=str(post.get("id") or ""),
+        content_type=_infer_content_type(post.get("media_type")),
+        text=str(post.get("text") or ""),
+        media_url=post.get("media_url"),
+        published_at=post.get("published_at"),
+        likes=int(post.get("likes") or 0),
+        comments_count=int(post.get("comments_count") or 0),
+        shares_count=int(post.get("shares_count") or 0),
+        reach=int(post.get("reach") or 0),
+        impressions=int(post.get("impressions") or 0),
+    )
 
 
 async def _fetch_live_posts_for_account(account: SocialAccount, limit: int = 20) -> list[dict]:
@@ -546,6 +564,37 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
     return []
 
 
+async def _enrich_and_store_live_comment(
+    db: AsyncSession,
+    account: SocialAccount,
+    post: Post,
+    comment: dict,
+) -> dict:
+    enriched = await _enrich_live_comment(comment)
+    label = str(enriched.get("label") or "neutral")
+    is_question = "?" in str(enriched.get("text") or "")
+    is_lead = any(
+        token in str(enriched.get("text") or "").lower()
+        for token in ("prix", "price", "tarif", "commande", "devis", "buy", "acheter")
+    )
+    stored = await persist_live_comment(
+        db,
+        post=post,
+        comment=enriched,
+        label=label,
+        sentiment_score=float(enriched.get("sentiment_score") or 0.0),
+        is_spam=bool(enriched.get("is_spam")),
+        is_toxic=bool(enriched.get("is_toxic")),
+        is_question=is_question,
+        is_lead=is_lead,
+        reply_priority=int(enriched.get("reply_priority") or 0),
+    )
+    enriched["stored_comment_id"] = str(stored.id)
+    if label in {"negative", "toxic"} or enriched.get("is_toxic"):
+        await ensure_negative_comment_alert(db, account_id=account.id, post=post, comment=stored, platform=account.platform)
+    return enriched
+
+
 @router.get("/", response_model=list[PostOut])
 async def list_posts(
     account_id: Optional[str] = Query(None),
@@ -596,6 +645,114 @@ async def create_post(
     db.add(post)
     await db.flush()
     return post
+
+
+@router.get("/live/feed")
+async def list_live_posts(
+    account_id: Optional[str] = Query(None),
+    limit: int = Query(20, ge=1, le=50),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(SocialAccount).where(SocialAccount.user_id == current_user.id)
+    if account_id:
+        query = query.where(SocialAccount.id == uuid.UUID(account_id))
+    result = await db.execute(query)
+    accounts = result.scalars().all()
+
+    items: list[dict] = []
+    errors: list[dict] = []
+    for account in accounts:
+        try:
+            live_posts = await _fetch_live_posts_for_account(account, limit=limit)
+            for post in live_posts:
+                await _persist_live_post_dict(db, account, post)
+                items.append(_enrich_live_post(account, post))
+        except Exception as exc:
+            errors.append(
+                {
+                    "account_id": str(account.id),
+                    "platform": account.platform.value,
+                    "account_name": account.account_name,
+                    "error": str(exc),
+                }
+            )
+
+    items.sort(key=lambda item: item.get("published_at") or 0, reverse=True)
+    return {"items": items[: limit * max(len(accounts), 1)], "errors": errors}
+
+
+@router.get("/live/comments")
+async def list_live_comments(
+    account_id: str = Query(...),
+    platform_post_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(SocialAccount).where(
+            SocialAccount.id == uuid.UUID(account_id),
+            SocialAccount.user_id == current_user.id,
+        )
+    )
+    account = result.scalar_one_or_none()
+    if not account:
+        raise HTTPException(404, "Account not found")
+
+    post_result = await db.execute(
+        select(Post).where(Post.account_id == account.id, Post.platform_post_id == platform_post_id)
+    )
+    post = post_result.scalar_one_or_none()
+    if post is None:
+        post = await persist_live_post(
+            db,
+            account_id=account.id,
+            platform_post_id=platform_post_id,
+            content_type="image",
+            text="",
+        )
+
+    comments = await _fetch_live_comments_for_account(account, platform_post_id)
+    enriched_comments: list[dict] = []
+    for comment in comments:
+        try:
+            enriched_comments.append(await _enrich_and_store_live_comment(db, account, post, comment))
+        except Exception:
+            comment["label"] = "neutral"
+            comment["label_color"] = _label_color("neutral")
+            comment["sentiment_score"] = 0.0
+            comment["is_spam"] = False
+            comment["is_toxic"] = False
+            enriched_comments.append(comment)
+    negative_count = sum(
+        1 for comment in enriched_comments
+        if comment.get("label") in {"negative", "toxic"} or comment.get("is_toxic")
+    )
+    total = len(enriched_comments)
+    if total >= 5 and negative_count / max(total, 1) >= 0.5:
+        await ensure_activity_alert(
+            db,
+            account_id=account.id,
+            severity=AlertSeverity.CRITICAL if negative_count / total >= 0.75 else AlertSeverity.HIGH,
+            alert_type="crisis_detected",
+            title="Risque de crise commentaires",
+            description=f"{negative_count}/{total} commentaires negatifs ou toxiques sur ce post.",
+            metadata={
+                "target_kind": "post",
+                "target_key": f"crisis:{platform_post_id}",
+                "account_id": str(account.id),
+                "post_id": str(post.id),
+                "platform_post_id": platform_post_id,
+                "platform": account.platform.value,
+                "negative_count": negative_count,
+                "total": total,
+                "negative_ratio": round(negative_count / total, 4),
+                "action_url": f"/inbox?tab=posts&post={platform_post_id}&filter=negative",
+            },
+        )
+    return {"items": enriched_comments}
+
+
 
 
 @router.get("/{post_id}", response_model=PostOut)
@@ -732,68 +889,3 @@ async def publish_now(
         raise HTTPException(500, f"Failed to enqueue: {e}")
 
     return {"status": "publishing", "post_id": post_id}
-
-
-@router.get("/live/feed")
-async def list_live_posts(
-    account_id: Optional[str] = Query(None),
-    limit: int = Query(20, ge=1, le=50),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    query = select(SocialAccount).where(SocialAccount.user_id == current_user.id)
-    if account_id:
-        query = query.where(SocialAccount.id == uuid.UUID(account_id))
-    result = await db.execute(query)
-    accounts = result.scalars().all()
-
-    items: list[dict] = []
-    errors: list[dict] = []
-    for account in accounts:
-        try:
-            live_posts = await _fetch_live_posts_for_account(account, limit=limit)
-            items.extend(_enrich_live_post(account, post) for post in live_posts)
-        except Exception as exc:
-            errors.append(
-                {
-                    "account_id": str(account.id),
-                    "platform": account.platform.value,
-                    "account_name": account.account_name,
-                    "error": str(exc),
-                }
-            )
-
-    items.sort(key=lambda item: item.get("published_at") or 0, reverse=True)
-    return {"items": items[: limit * max(len(accounts), 1)], "errors": errors}
-
-
-@router.get("/live/comments")
-async def list_live_comments(
-    account_id: str = Query(...),
-    platform_post_id: str = Query(...),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(
-        select(SocialAccount).where(
-            SocialAccount.id == uuid.UUID(account_id),
-            SocialAccount.user_id == current_user.id,
-        )
-    )
-    account = result.scalar_one_or_none()
-    if not account:
-        raise HTTPException(404, "Account not found")
-
-    comments = await _fetch_live_comments_for_account(account, platform_post_id)
-    enriched_comments: list[dict] = []
-    for comment in comments:
-        try:
-            enriched_comments.append(await _enrich_live_comment(comment))
-        except Exception:
-            comment["label"] = "neutral"
-            comment["label_color"] = _label_color("neutral")
-            comment["sentiment_score"] = 0.0
-            comment["is_spam"] = False
-            comment["is_toxic"] = False
-            enriched_comments.append(comment)
-    return {"items": enriched_comments}

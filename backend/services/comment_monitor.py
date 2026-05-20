@@ -10,7 +10,6 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.celery_app import celery_app
-from core.kafka_client import get_kafka_producer
 from loguru import logger
 
 
@@ -59,7 +58,6 @@ def monitor_account(account_id: str):
     SocialAccount, Post, PostStatus, Comment, Alert, AlertSeverity = _load_monitoring_models()
     nlp_pipeline = _load_nlp_pipeline()
     settings = get_settings()
-    kafka_producer = get_kafka_producer()
 
     async def _run():
         engine = create_engine(settings.sync_database_url)
@@ -100,34 +98,6 @@ def monitor_account(account_id: str):
                     if analysis.is_spam or analysis.is_toxic:
                         comment.is_hidden = True
 
-                    kafka_producer.emit_comment({
-                        "comment_id": str(comment.id),
-                        "post_id": str(comment.post_id),
-                        "platform": account.platform.value,
-                        "account_id": account_id,
-                        "text": comment.text,
-                        "author": getattr(comment, "author_username", None) or getattr(comment, "author_name", "") or "",
-                        "timestamp": comment.created_at.isoformat() if getattr(comment, "created_at", None) else "",
-                        "likes_count": getattr(comment, "likes_count", 0) or 0,
-                        "is_reply": getattr(comment, "is_reply", False) or False,
-                    })
-
-                    kafka_producer.produce_event(
-                        "social.nlp.results",
-                        key=str(comment.id),
-                        value={
-                            "comment_id": str(comment.id),
-                            "is_spam": analysis.is_spam,
-                            "spam_score": analysis.spam_score,
-                            "is_toxic": analysis.is_toxic,
-                            "toxic_score": analysis.toxic_score,
-                            "sentiment": analysis.sentiment,
-                            "sentiment_score": analysis.sentiment_score,
-                            "topic_id": analysis.topic_id,
-                            "topic_label": analysis.topic_label,
-                            "language": analysis.language,
-                        },
-                    )
                     all_analyses.append(analysis)
 
                 session.commit()

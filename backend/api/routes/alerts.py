@@ -30,6 +30,19 @@ async def list_alerts(
     q = q.order_by(Alert.created_at.desc()).limit(limit)
     result = await db.execute(q)
     alerts = result.scalars().all()
+    deduped = []
+    seen_keys = set()
+    for alert in alerts:
+        metadata = alert.metadata_ or {}
+        dedupe_key = (
+            str(alert.account_id),
+            alert.alert_type,
+            metadata.get("target_key") or str(alert.id),
+        )
+        if dedupe_key in seen_keys:
+            continue
+        seen_keys.add(dedupe_key)
+        deduped.append(alert)
     return [
         {
             "id": str(a.id),
@@ -37,10 +50,12 @@ async def list_alerts(
             "alert_type": a.alert_type,
             "title": a.title,
             "description": a.description,
+            "metadata": a.metadata_ or {},
+            "action_url": (a.metadata_ or {}).get("action_url", ""),
             "is_acknowledged": a.is_acknowledged,
             "created_at": a.created_at.isoformat(),
         }
-        for a in alerts
+        for a in deduped
     ]
 
 

@@ -211,6 +211,23 @@ class DirectMessage(Base):
     human_handoff: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class LLMMemoryEntry(Base):
+    __tablename__ = "llm_memory_entries"
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("users.id"), nullable=False)
+    session_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    feature: Mapped[str] = mapped_column(String(100), default="general", nullable=False)
+    metadata_: Mapped[dict] = mapped_column("metadata", JSON_VARIANT, default=dict)
+
+    __table_args__ = (
+        Index("ix_llm_memory_user_session_created", "user_id", "session_id", "created_at"),
+        Index("ix_llm_memory_feature", "feature"),
+    )
+
+
 class HashtagPerformance(Base):
     __tablename__ = "hashtag_performance"
 

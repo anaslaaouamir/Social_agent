@@ -56,14 +56,14 @@ async def predict_timing(
     weekly_heatmap = [
         [
             round(
-                engagement_predictor.predict(
+                engagement_predictor.predict_rate(
                     platform=platform,
                     content_type=content_type,
                     hour=hour,
                     day_of_week=day,
                     followers=followers,
                     historical_avg_er=historical_avg_er,
-                ).predicted_engagement_rate * 100,
+                ) * 100,
                 2,
             )
             for hour in range(24)

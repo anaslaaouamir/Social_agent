@@ -6,10 +6,14 @@ Supports FR/AR/EN with Moroccan cultural context.
 from __future__ import annotations
 import json
 import asyncio
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 from enum import Enum
 from loguru import logger
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from services.llm_orchestrator import LLMConfigurationError, LLMRequest, get_llm_orchestrator
 
 
 class Platform(str, Enum):
@@ -128,9 +132,8 @@ class ContentGenerationEngine:
         ],
     }
 
-    def __init__(self, anthropic_api_key: str):
-        import anthropic
-        self.client = anthropic.AsyncAnthropic(api_key=anthropic_api_key)
+    def __init__(self, anthropic_api_key: str | None = None):
+        self.anthropic_api_key = anthropic_api_key
 
     async def generate(
         self,
@@ -142,6 +145,9 @@ class ContentGenerationEngine:
         languages: list[str] = None,
         special_context: str = "",
         num_variants: int = 3,
+        db: AsyncSession | None = None,
+        user_id: str | None = None,
+        session_id: str = "content-generation",
     ) -> GeneratedContent:
         """Generate multi-variant content for a given platform and visual."""
         if languages is None:
@@ -155,13 +161,22 @@ class ContentGenerationEngine:
         )
 
         try:
-            response = await self.client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=2000,
-                system=self._system_prompt(),
-                messages=[{"role": "user", "content": prompt}],
+            if not user_id:
+                raise LLMConfigurationError("user_id is required for durable LLM orchestration")
+            response = await get_llm_orchestrator().generate_text(
+                LLMRequest(
+                    user_message=prompt,
+                    system_prompt=self._system_prompt(),
+                    user_id=user_id,
+                    session_id=session_id,
+                    feature="content_generation",
+                    persist_memory=True,
+                    metadata={"platform": platform.value, "brand_name": brand_name},
+                    max_tokens=2000,
+                ),
+                db=db,
             )
-            raw = response.content[0].text
+            raw = response.text
             data = self._parse_response(raw)
             return self._build_result(data, platform, tone, languages, constraints)
         except Exception as e:
@@ -219,7 +234,111 @@ Retourne exactement ce JSON:
             if text.startswith(prefix):
                 text = text[len(prefix):]
         text = text.rstrip("`").strip()
-        return json.loads(text)
+        text = self._extract_json_object(text)
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as first_error:
+            repaired = self._escape_control_chars_inside_strings(text)
+            try:
+                return json.loads(repaired)
+            except json.JSONDecodeError as second_error:
+                logger.warning("Content JSON repair fallback used: %s / %s", first_error, second_error)
+                return self._best_effort_parse_response(repaired)
+
+    def _extract_json_object(self, text: str) -> str:
+        """Return the first balanced JSON object from an LLM response."""
+        start = text.find("{")
+        if start < 0:
+            return text
+
+        in_string = False
+        escaped = False
+        depth = 0
+        for index in range(start, len(text)):
+            char = text[index]
+            if escaped:
+                escaped = False
+                continue
+            if char == "\\":
+                escaped = True
+                continue
+            if char == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start:index + 1]
+        return text[start:]
+
+    def _escape_control_chars_inside_strings(self, text: str) -> str:
+        """Repair common LLM JSON issue: raw newlines/tabs inside string values."""
+        repaired = []
+        in_string = False
+        escaped = False
+        for char in text:
+            if escaped:
+                repaired.append(char)
+                escaped = False
+                continue
+            if char == "\\":
+                repaired.append(char)
+                escaped = True
+                continue
+            if char == '"':
+                repaired.append(char)
+                in_string = not in_string
+                continue
+            if in_string and char in {"\n", "\r", "\t"}:
+                repaired.append({"\n": "\\n", "\r": "\\r", "\t": "\\t"}[char])
+                continue
+            repaired.append(char)
+        return "".join(repaired)
+
+    def _best_effort_parse_response(self, text: str) -> dict:
+        """Extract usable content from malformed LLM JSON instead of failing the request."""
+        captions = []
+        caption_blocks = re.findall(r'"text"\s*:\s*"([\s\S]*?)"\s*,\s*"language"\s*:\s*"([^"]*)"', text)
+        for index, (caption_text, language) in enumerate(caption_blocks[:5]):
+            cleaned_text = caption_text.replace('\\"', '"').replace("\\n", "\n").strip()
+            if cleaned_text:
+                captions.append(
+                    {
+                        "text": cleaned_text,
+                        "language": language or "fr",
+                        "emojis": [],
+                        "cta": "",
+                        "score": max(60, 80 - index * 4),
+                    }
+                )
+
+        if not captions:
+            plain = re.sub(r"[{}\[\]\"]", " ", text)
+            plain = re.sub(r"\s+", " ", plain).strip()
+            captions.append(
+                {
+                    "text": plain[:500] if plain else "Decouvrez notre nouvelle publication.",
+                    "language": "fr",
+                    "emojis": [],
+                    "cta": "",
+                    "score": 60,
+                }
+            )
+
+        hashtags = list(dict.fromkeys(re.findall(r"#[\w\u0600-\u06ff_]+", text)))[:30]
+        return {
+            "captions": captions,
+            "hashtags": {
+                "trending": hashtags[:5],
+                "niche": hashtags[5:15],
+                "branded": [],
+                "general": hashtags[15:30],
+            },
+        }
 
     def _build_result(self, data: dict, platform: Platform, tone: ToneOfVoice, languages: list[str], constraints: dict) -> GeneratedContent:
         captions = []

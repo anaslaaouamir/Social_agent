@@ -1,5 +1,5 @@
 """
-Fine-tune multilingual BERT models on local/available project datasets.
+Fine-tune multilingual BERT models on local project datasets.
 
 Usage examples:
   python scripts/train_mbert.py --task sentiment
@@ -29,7 +29,7 @@ from transformers import (
     TrainingArguments,
 )
 
-from services.dataset_loader import load_sentiment140, load_toxic_comments
+from services.dataset_loader import load_quadrilingual_sentiment, load_toxic_comments
 
 MODEL_NAME = "bert-base-multilingual-uncased"
 MODEL_DIR = Path("./data/models")
@@ -118,7 +118,7 @@ def train_sentiment(
     resume: bool = False,
     use_cpu: bool = True,
 ):
-    df = load_sentiment140(max_rows=max_rows)
+    df = load_quadrilingual_sentiment(max_rows=max_rows)
     label_map = {"negative": 0, "neutral": 1, "positive": 2}
     df["label_id"] = df["sentiment_label"].map(label_map)
 

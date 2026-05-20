@@ -58,3 +58,31 @@ export const useNotifStore = create<NotifStore>((set) => ({
   unreadAlerts: 0,
   setUnreadAlerts: (n) => set({ unreadAlerts: n }),
 }))
+
+interface ResourceCacheEntry<T = any> {
+  data: T
+  updatedAt: number
+}
+
+interface ResourceCacheStore {
+  resources: Record<string, ResourceCacheEntry>
+  getResource: <T = any>(key: string) => ResourceCacheEntry<T> | null
+  setResource: <T = any>(key: string, data: T) => void
+  clearResource: (key: string) => void
+}
+
+export const useResourceCache = create<ResourceCacheStore>((set, get) => ({
+  resources: {},
+  getResource: (key) => (get().resources[key] as ResourceCacheEntry | undefined) || null,
+  setResource: (key, data) => set((state) => ({
+    resources: {
+      ...state.resources,
+      [key]: { data, updatedAt: Date.now() },
+    },
+  })),
+  clearResource: (key) => set((state) => {
+    const next = { ...state.resources }
+    delete next[key]
+    return { resources: next }
+  }),
+}))

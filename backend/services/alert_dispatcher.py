@@ -1,38 +1,35 @@
-"""
-Dispatcher d'alertes temps réel : WebSocket + Email + Slack
-Consomme le topic Kafka social.alerts
-"""
+"""Real-time alert dispatch via WebSocket, email, and Slack."""
 from __future__ import annotations
-import asyncio
+
 import json
 import logging
 import smtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from typing import Set
+
 import websockets
 from websockets.server import WebSocketServerProtocol
+
 from core.config import get_settings
-from core.kafka_client import get_consumer
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-# ─── WebSocket Manager ────────────────────────────────────────────────────────
 
 class WebSocketManager:
-    """Gère les connexions WebSocket actives pour les alertes temps réel."""
+    """Tracks active WebSocket connections for live alerts."""
 
     def __init__(self):
         self._connections: Set[WebSocketServerProtocol] = set()
 
     async def connect(self, ws: WebSocketServerProtocol):
         self._connections.add(ws)
-        logger.info(f"WS connected: {ws.remote_address}. Total: {len(self._connections)}")
+        logger.info("WS connected: %s. Total: %s", ws.remote_address, len(self._connections))
 
     async def disconnect(self, ws: WebSocketServerProtocol):
         self._connections.discard(ws)
-        logger.info(f"WS disconnected. Total: {len(self._connections)}")
+        logger.info("WS disconnected. Total: %s", len(self._connections))
 
     async def broadcast(self, message: dict):
         if not self._connections:
@@ -68,7 +65,7 @@ async def dispatch(account_id: str, severity: str, alert_type: str, message: str
 
 
 async def check_sentiment_crisis(account_id: str, recent_comments: list) -> None:
-    """Declenche une alerte si ratio negatif/toxique depasse le seuil."""
+    """Create a live alert if negative/toxic comments exceed a crisis threshold."""
     if not recent_comments:
         return
     negative = sum(
@@ -88,10 +85,8 @@ async def check_sentiment_crisis(account_id: str, recent_comments: list) -> None
         )
 
 
-# ─── Email sender ─────────────────────────────────────────────────────────────
-
 def send_email_alert(subject: str, body: str, to: str = None):
-    """Envoie un email d'alerte via SMTP."""
+    """Send an alert email via SMTP when configured."""
     to = to or settings.alert_email
     if not to or not settings.smtp_user:
         logger.warning("Email alert skipped: SMTP not configured")
@@ -108,80 +103,24 @@ def send_email_alert(subject: str, body: str, to: str = None):
             server.starttls()
             server.login(settings.smtp_user, settings.smtp_password)
             server.sendmail(settings.smtp_user, to, msg.as_string())
-        logger.info(f"Email alert sent to {to}")
-    except Exception as e:
-        logger.error(f"Email send failed: {e}")
+        logger.info("Email alert sent to %s", to)
+    except Exception as exc:
+        logger.error("Email send failed: %s", exc)
 
-
-# ─── Slack sender ─────────────────────────────────────────────────────────────
 
 async def send_slack_alert(message: str, severity: str = "medium"):
-    """Envoie une notification Slack via webhook."""
+    """Send a Slack notification via webhook when configured."""
     if not settings.slack_webhook_url:
         return
     import httpx
-    emoji = {"low": "ℹ️", "medium": "⚠️", "high": "🚨", "critical": "🔴"}.get(severity, "⚠️")
+
+    label = {"low": "LOW", "medium": "MEDIUM", "high": "HIGH", "critical": "CRITICAL"}.get(severity, "MEDIUM")
     payload = {
         "channel": settings.slack_alert_channel,
-        "text": f"{emoji} *Social Agent Alert*\n{message}",
+        "text": f"*Social Agent Alert [{label}]*\n{message}",
         "mrkdwn": True,
     }
     async with httpx.AsyncClient() as client:
         resp = await client.post(settings.slack_webhook_url, json=payload)
         if resp.status_code != 200:
-            logger.error(f"Slack webhook failed: {resp.text}")
-
-
-# ─── Kafka Alert Consumer ─────────────────────────────────────────────────────
-
-async def consume_alerts():
-    """
-    Consomme le topic social.alerts en continu.
-    Pour chaque alerte → broadcast WS + email + Slack selon sévérité.
-    """
-    consumer = get_consumer(
-        group_id="alert-dispatcher",
-        topics=[settings.kafka_topic_alerts],
-    )
-    loop = asyncio.get_event_loop()
-
-    logger.info("Alert consumer started")
-    try:
-        while True:
-            msg = await loop.run_in_executor(None, lambda: consumer.poll(timeout=1.0))
-            if msg is None:
-                continue
-            if msg.error():
-                logger.error(f"Kafka consumer error: {msg.error()}")
-                continue
-
-            try:
-                alert = json.loads(msg.value().decode("utf-8"))
-                severity = alert.get("severity", "medium")
-                message = alert.get("message", "Alert from social agent")
-
-                # 1. WebSocket broadcast (toujours)
-                await ws_manager.broadcast({
-                    "type": "alert",
-                    "severity": severity,
-                    "message": message,
-                    "data": alert,
-                })
-
-                # 2. Email si high ou critical
-                if severity in ("high", "critical"):
-                    subject = f"{severity.upper()}: {message[:80]}"
-                    body = f"<pre>{json.dumps(alert, indent=2)}</pre>"
-                    loop.run_in_executor(None, send_email_alert, subject, body)
-
-                # 3. Slack si medium+
-                if severity in ("medium", "high", "critical"):
-                    await send_slack_alert(
-                        f"*{severity.upper()}*: {message}",
-                        severity=severity,
-                    )
-
-            except Exception as e:
-                logger.error(f"Alert processing error: {e}")
-    finally:
-        consumer.close()
+            logger.error("Slack webhook failed: %s", resp.text)

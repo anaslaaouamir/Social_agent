@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useAuthStore, useAppStore, useNotifStore } from '../../store'
 import { accountsApi, alertsApi } from '../../lib/api'
 import { PlatformIcon } from '../ui'
+import RagFloatingPanel from '../RagFloatingPanel'
 
 const NAV = [
   { to: '/dashboard', icon: '◈', label: 'Dashboard' },
@@ -14,7 +15,6 @@ const NAV = [
   { to: '/hashtags', icon: '#', label: 'Hashtags' },
   { to: '/analytics', icon: '∿', label: 'Analytics' },
   { to: '/monitoring', icon: '⬡', label: 'Monitoring' },
-  { to: '/chatbot', icon: '⊛', label: 'Chatbot RAG' },
   { to: '/alerts', icon: '⚠', label: 'Alertes' },
   { to: '/settings', icon: '⚙', label: 'Paramètres' },
 ]
@@ -44,7 +44,16 @@ export default function AppLayout() {
 
   useEffect(() => {
     accountsApi.list().then(r => setAccounts(r.data)).catch(() => {})
-    alertsApi.list({ acknowledged: false }).then(r => setUnreadAlerts(r.data.length)).catch(() => {})
+    const refreshUnreadAlerts = () => {
+      alertsApi.list({ acknowledged: false, limit: 500 }).then(r => setUnreadAlerts(r.data.length)).catch(() => {})
+    }
+    refreshUnreadAlerts()
+    const interval = window.setInterval(refreshUnreadAlerts, 30000)
+    window.addEventListener('alerts:changed', refreshUnreadAlerts)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('alerts:changed', refreshUnreadAlerts)
+    }
   }, [])
 
   const handleLogout = () => {
@@ -244,6 +253,7 @@ export default function AppLayout() {
       <main style={{ flex: 1, overflow: 'auto', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
         <Outlet />
       </main>
+      <RagFloatingPanel />
     </div>
   )
 }

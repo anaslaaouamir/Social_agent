@@ -97,42 +97,6 @@ class PostOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ─── Media Analysis ──────────────────────────────────────────────────────────
-
-class MediaAnalysisRequest(BaseModel):
-    url: Optional[str] = None
-
-
-class ColorPaletteOut(BaseModel):
-    dominant: list[str]
-    accent: str
-    background: str
-
-
-class QualityOut(BaseModel):
-    overall_score: float
-    sharpness: float
-    exposure: float
-    composition: float
-    noise_level: float
-    recommendations: list[str]
-
-
-class MediaAnalysisOut(BaseModel):
-    category: str
-    content_tags: list[str]
-    confidence: float
-    color_palette: ColorPaletteOut
-    quality: QualityOut
-    objects_detected: list[dict]
-    faces_count: int
-    has_text: bool
-    ocr_text: str
-    is_safe: bool
-    safety_flags: list[str]
-    descriptions: dict[str, str]
-    is_video: bool
-
 
 # ─── Content Generation ──────────────────────────────────────────────────────
 

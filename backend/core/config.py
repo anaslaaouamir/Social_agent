@@ -23,7 +23,7 @@ class CustomDotEnvSettingsSource(DotEnvSettingsSource):
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(".env", "../.env"),
+        env_file=("../.env", ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -44,17 +44,6 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"
     
-    # Kafka
-    kafka_bootstrap_servers: str = "localhost:9092"
-    kafka_topic_social_events: str = "social.events"
-    kafka_topic_nlp_results: str = "social.nlp.results"
-    kafka_topic_alerts: str = "social.alerts"
-    kafka_consumer_group: str = "social-agent-group"
-
-    # Spark
-    spark_master_url: str = "spark://localhost:7077"
-    spark_checkpoints_dir: str = "/tmp/spark-checkpoints"
-
     # Grafana / Prometheus
     prometheus_port: int = 9091
 
@@ -72,6 +61,7 @@ class Settings(BaseSettings):
     # AI APIs
     anthropic_api_key: str = ""
     openai_api_key: str = ""
+    hugging_face_api: str = ""
 
     # Social Platforms
     instagram_access_token: str = ""

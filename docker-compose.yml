@@ -39,69 +39,6 @@ services:
     volumes:
       - es_data:/usr/share/elasticsearch/data
 
-  # === KAFKA CLUSTER ===
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.0
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
-
-  kafka:
-    image: confluentinc/cp-kafka:7.6.0
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
-      - "29092:29092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_NUM_PARTITIONS: 4
-    healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
-
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    ports:
-      - "8090:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: social-agent
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
-    depends_on:
-      - kafka
-
-  # === SPARK ===
-  spark-master:
-    image: spark:3.5.8
-    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master --host spark-master --port 7077 --webui-port 8080
-    ports:
-      - "8080:8080"
-      - "7077:7077"
-    volumes:
-      - ./spark/jobs:/opt/spark-jobs
-      - ./spark/checkpoints:/tmp/spark-checkpoints
-
-  spark-worker:
-    image: spark:3.5.8
-    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077 --cores 2 --memory 2G --webui-port 8081
-    depends_on:
-      - spark-master
-    ports:
-      - "8081:8081"
-    volumes:
-      - ./spark/jobs:/opt/spark-jobs
-      - ./spark/checkpoints:/tmp/spark-checkpoints
-
   # === GRAFANA ===
   grafana:
     image: grafana/grafana:10.4.0
@@ -137,14 +74,10 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
       ELASTICSEARCH_URL: http://elasticsearch:9200
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      SPARK_MASTER_URL: spark://spark-master:7077
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      kafka:
         condition: service_healthy
     volumes:
       - ./backend:/app
@@ -163,7 +96,6 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
       ELASTICSEARCH_URL: http://elasticsearch:9200
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       postgres:
         condition: service_healthy
@@ -185,7 +117,6 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       - redis
     volumes:

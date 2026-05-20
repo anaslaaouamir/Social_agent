@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { alertsApi } from '../lib/api'
-import { useNotifStore } from '../store'
+import { useNotifStore, useResourceCache } from '../store'
 import { PageHeader, Card, Btn, Badge, Loading, Empty } from '../components/ui'
 import toast from 'react-hot-toast'
 
@@ -17,23 +18,44 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'unread'>('unread')
   const { setUnreadAlerts } = useNotifStore()
+  const { getResource, setResource } = useResourceCache()
+  const navigate = useNavigate()
 
-  const load = async () => {
-    setLoading(true)
+  const cacheKey = `alerts:${filter}`
+
+  const load = async (options: { background?: boolean } = {}) => {
+    const cached = getResource<any[]>(cacheKey)
+    if (!options.background && cached?.data) {
+      setAlerts(cached.data)
+      setLoading(false)
+    } else if (!options.background) {
+      setLoading(true)
+    }
     try {
       const params = filter === 'unread' ? { acknowledged: false } : {}
       const res = await alertsApi.list(params)
       setAlerts(res.data)
-    } catch { setAlerts([]) } finally { setLoading(false) }
+      setResource(cacheKey, res.data)
+      if (filter === 'unread') setUnreadAlerts(res.data.length)
+    } catch {
+      if (!cached?.data) setAlerts([])
+    } finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [filter])
+  useEffect(() => {
+    load()
+    const interval = window.setInterval(() => load({ background: true }), 30000)
+    return () => window.clearInterval(interval)
+  }, [filter])
 
   const handleAck = async (id: string) => {
     try {
       await alertsApi.acknowledge(id)
-      setAlerts(a => a.map(al => al.id === id ? { ...al, is_acknowledged: true } : al))
+      const nextAlerts = alerts.map(al => al.id === id ? { ...al, is_acknowledged: true } : al)
+      setAlerts(nextAlerts)
+      setResource(cacheKey, nextAlerts)
       setUnreadAlerts(Math.max(0, alerts.filter(a => !a.is_acknowledged).length - 1))
+      window.dispatchEvent(new Event('alerts:changed'))
       toast.success('Alerte acquittée')
     } catch { toast.error('Erreur') }
   }
@@ -41,8 +63,11 @@ export default function AlertsPage() {
   const handleAckAll = async () => {
     const unread = alerts.filter(a => !a.is_acknowledged)
     await Promise.all(unread.map(a => alertsApi.acknowledge(a.id).catch(() => {})))
-    setAlerts(a => a.map(al => ({ ...al, is_acknowledged: true })))
+    const nextAlerts = alerts.map(al => ({ ...al, is_acknowledged: true }))
+    setAlerts(nextAlerts)
+    setResource(cacheKey, nextAlerts)
     setUnreadAlerts(0)
+    window.dispatchEvent(new Event('alerts:changed'))
     toast.success('Toutes les alertes acquittées')
   }
 
@@ -90,6 +115,9 @@ export default function AlertsPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{alert.created_at?.split('T')[0]}</span>
+                  {alert.action_url && (
+                    <Btn size="sm" variant="outline" onClick={() => navigate(alert.action_url)}>Ouvrir</Btn>
+                  )}
                   {!alert.is_acknowledged && (
                     <Btn size="sm" variant="ghost" onClick={() => handleAck(alert.id)}>✓ Acquitter</Btn>
                   )}

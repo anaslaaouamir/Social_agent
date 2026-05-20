@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 
 import { postsApi } from '../lib/api'
-import { useAppStore } from '../store'
+import { useAppStore, useResourceCache } from '../store'
 import { PageHeader, Btn, Card, Badge, Loading, Empty, PlatformIcon, AccountScopeTabs } from '../components/ui'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -24,23 +24,33 @@ function looksLikeVideo(post: any) {
 
 export default function PostsPage() {
   const { accounts, selectedAccount, setSelectedAccount } = useAppStore()
+  const { getResource, setResource } = useResourceCache()
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const navigate = useNavigate()
 
   const acc = selectedAccount
+  const cacheKey = `posts:${acc?.id || 'all'}:${filter}`
   const uniquePlatforms = Array.from(new Set(posts.map((post) => post.account?.platform || post.platform || 'instagram')))
 
-  const load = async () => {
-    setLoading(true)
+  const load = async (options: { background?: boolean } = {}) => {
+    const cached = getResource<any[]>(cacheKey)
+    if (!options.background && cached?.data?.length) {
+      setPosts(cached.data)
+      setLoading(false)
+    } else if (!options.background) {
+      setLoading(true)
+    }
     try {
       const params: any = {}
       if (acc?.id) params.account_id = acc.id
 
       if (filter === 'all') {
         const res = await postsApi.liveList(params)
-        setPosts(res.data.items || [])
+        const items = res.data.items || []
+        setPosts(items)
+        setResource(cacheKey, items)
         if (res.data.errors?.length) {
           toast.error(`Certaines plateformes n'ont pas pu etre chargees (${res.data.errors.length})`)
         }
@@ -48,15 +58,20 @@ export default function PostsPage() {
         params.status = filter
         const res = await postsApi.list(params)
         setPosts(res.data)
+        setResource(cacheKey, res.data)
       }
     } catch {
-      toast.error('Erreur de chargement')
+      if (!cached?.data?.length) toast.error('Erreur de chargement')
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { load() }, [acc?.id, filter])
+  useEffect(() => {
+    load()
+    const interval = window.setInterval(() => load({ background: true }), filter === 'all' ? 45000 : 90000)
+    return () => window.clearInterval(interval)
+  }, [acc?.id, filter])
 
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer ce post ?')) return
@@ -192,16 +207,6 @@ export default function PostsPage() {
                       {typeof post.predicted_engagement_percent === 'number' && (
                         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent-2)', background: 'rgba(108,99,255,0.08)', padding: '4px 8px', borderRadius: 999, border: '1px solid rgba(108,99,255,0.16)' }}>
                           Engagement predit {post.predicted_engagement_percent.toFixed(2)}%
-                        </span>
-                      )}
-                      {typeof post.predicted_reach === 'number' && (
-                        <span style={{ fontSize: 11, color: 'var(--text-2)', background: 'var(--bg-1)', padding: '4px 8px', borderRadius: 999, border: '1px solid var(--border)' }}>
-                          Reach predit {post.predicted_reach.toLocaleString('fr-FR')}
-                        </span>
-                      )}
-                      {typeof post.engagement_confidence === 'number' && (
-                        <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
-                          Confiance {(post.engagement_confidence * 100).toFixed(0)}%
                         </span>
                       )}
                     </div>

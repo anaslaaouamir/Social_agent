@@ -20,6 +20,8 @@ from services.instagram_graph import InstagramService
 from services.linkedIn_graph import LinkedInGraphService
 from services.nlp_pipeline import nlp_pipeline
 from services.rag_service import get_rag_service
+from services.llm_orchestrator import LLMRequest, get_llm_orchestrator
+from services.social_activity_store import ensure_negative_dm_alert, persist_live_dm_item
 from services.social_account_tokens import resolve_account_access_token, resolve_account_access_tokens
 from services.twitter_graph import TwitterGraphService
 
@@ -127,29 +129,91 @@ def _normalize_conversation_messages(account: SocialAccount, raw_messages: list[
 
 
 @router.post("/respond")
-async def dm_respond(payload: dict, current_user: User = Depends(get_current_user)):
+async def dm_respond(
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     """Generate AI chatbot response for a DM (multilingual FR/AR/EN)."""
     message = payload.get("message", "")
     language = payload.get("language") or _detect_language(message)
     intent = _detect_intent(message)
     requires_human = intent == "complaint"
 
-    if settings.anthropic_api_key:
+    llm_enabled = bool(settings.anthropic_api_key or settings.hugging_face_api)
+    if not llm_enabled:
+        response_text = _fallback_dm_message(language)
+    else:
         response_text = await get_rag_service().chat_with_rag(
             user_message=message,
             conversation_history=payload.get("history", []),
             system_context=payload.get("brand_knowledge", ""),
+            db=db,
+            user_id=str(current_user.id),
+            session_id=f"dm:{current_user.id}:{payload.get('conversation_id') or payload.get('sender_id') or 'general'}",
         )
-    else:
-        response_text = _fallback_dm_message(language)
 
     return {
         "message": response_text,
         "language": language,
         "intent": intent,
-        "confidence": 0.78 if settings.anthropic_api_key else 0.45,
+        "confidence": 0.78 if llm_enabled else 0.45,
         "requires_human": requires_human,
         "suggested_actions": ["escalate_to_human"] if requires_human else ["reply"],
+    }
+
+
+@router.post("/analyze")
+async def analyze_dm_message(
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Analyze a DM through the local NLP model and generate a Claude reply suggestion via the central graph."""
+    text = str(payload.get("message") or payload.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "message is required")
+
+    analysis = await nlp_pipeline.process(text)
+    label = "spam" if analysis.is_spam else "toxic" if analysis.is_toxic else analysis.sentiment
+    language = payload.get("language") or _detect_language(text)
+    suggested_reply = _fallback_dm_message(language)
+
+    if settings.anthropic_api_key or settings.hugging_face_api:
+        system_prompt = (
+            "Tu es l'assistant social media de la marque. "
+            "Genere une reponse courte, professionnelle, humaine et utile. "
+            "Si la demande est sensible, propose de transmettre au service client. "
+            "Reponds seulement avec le texte de la reponse, sans JSON."
+        )
+        try:
+            response = await get_llm_orchestrator().generate_text(
+                LLMRequest(
+                    user_message=f"Message client: {text}",
+                    system_prompt=system_prompt,
+                    user_id=str(current_user.id),
+                    session_id=f"dm-analysis:{current_user.id}:{payload.get('conversation_id') or payload.get('sender_id') or 'manual'}",
+                    feature="dm_analysis",
+                    persist_memory=True,
+                    metadata={"label": label, "language": language},
+                    max_tokens=300,
+                ),
+                db=db,
+            )
+            suggested_reply = response.text or suggested_reply
+        except Exception as exc:
+            logger.warning("DM reply suggestion skipped: {}", exc)
+
+    return {
+        "sentiment": label,
+        "sentimentScore": analysis.sentiment_score,
+        "emotion": "neutre",
+        "isQuestion": "?" in text,
+        "isLead": any(token in text.lower() for token in ("prix", "price", "tarif", "commande", "devis", "buy", "acheter")),
+        "isToxic": analysis.is_toxic,
+        "isSpam": analysis.is_spam,
+        "suggestedReply": suggested_reply,
+        "analyzed": True,
     }
 
 
@@ -446,7 +510,7 @@ async def get_live_inbox(
                         f"https://graph.facebook.com/v20.0/{account.account_id}/conversations",
                         params={
                             "access_token": account.access_token,
-                            "fields": "id,snippet,updated_time,message_count,unread_count,participants,messages{id,message,from,to,created_time,attachments}",
+                            "fields": "id,snippet,updated_time,message_count,unread_count,participants,messages.limit(100){id,message,from,to,created_time,attachments}",
                         },
                     )
                 data = resp.json()
@@ -503,6 +567,14 @@ async def get_live_inbox(
                 message["is_toxic"] = False
                 message["is_question"] = False
                 message["is_lead"] = False
+
+        try:
+            stored = await persist_live_dm_item(db, item)
+            item["stored_dm_id"] = str(stored.id)
+            if item.get("label") in {"negative", "toxic"} or item.get("is_toxic"):
+                await ensure_negative_dm_alert(db, item=item)
+        except Exception as exc:
+            logger.warning("DM persistence skipped for '{}': {}", item.get("id"), exc)
 
     items.sort(key=lambda item: item.get("timestamp") or "", reverse=True)
     return {"items": items, "errors": errors}

@@ -4,7 +4,6 @@ All routers, middleware, CORS, WebSocket, startup events.
 """
 from __future__ import annotations
 
-import asyncio
 import time
 from contextlib import asynccontextmanager
 
@@ -18,8 +17,8 @@ from api.routes import nlp as nlp_routes
 from core.config import get_settings
 from core.runtime_state import mark_runtime
 from api.routes import (
-    auth, posts, media, analytics, hashtags,
-    timing, comments, dm, accounts, alerts, calendar, content,
+    auth, posts, analytics, hashtags,
+    comments, dm, accounts, alerts, calendar, content,
     monitoring, profile, linkedIn_oauth, facebook_oauth,
     instagram_oauth, twitter_oauth, tiktok_oauth, threads_oauth, youtube_oauth, meta_webhooks,
 )
@@ -37,7 +36,7 @@ async def lifespan(app: FastAPI):
         from core.database import engine, Base
         from models.domain import (
             User, SocialAccount, Post, Comment,
-            DirectMessage, HashtagPerformance, Alert, AccountMetric,
+            DirectMessage, LLMMemoryEntry, HashtagPerformance, Alert, AccountMetric,
         )
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -60,32 +59,7 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Elasticsearch init skipped: {exc}")
         mark_runtime("elasticsearch", "unhealthy")
 
-    kafka_ready = False
-    try:
-        from core.kafka_client import create_topics_if_not_exist
-        kafka_ready = create_topics_if_not_exist()
-        if kafka_ready:
-            logger.info("Kafka topics created/verified")
-            mark_runtime("kafka", "healthy")
-        else:
-            logger.warning("Kafka not available at startup")
-            mark_runtime("kafka", "unhealthy")
-    except Exception as exc:
-        logger.warning(f"Kafka init skipped: {exc}")
-        mark_runtime("kafka", "unhealthy")
-
-    if kafka_ready:
-        try:
-            from services.alert_dispatcher import consume_alerts
-            asyncio.create_task(consume_alerts())
-            logger.info("Alert consumer started")
-            mark_runtime("alert_consumer", "running", started_at=time.time())
-        except Exception as exc:
-            logger.warning(f"Alert consumer skipped: {exc}")
-            mark_runtime("alert_consumer", "stopped")
-    else:
-        logger.warning("Alert consumer skipped because Kafka is unavailable")
-        mark_runtime("alert_consumer", "stopped")
+    mark_runtime("celery_monitor", "scheduled")
 
     yield
 
@@ -137,10 +111,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(accounts.router, prefix="/api/accounts", tags=["Social Accounts"])
 app.include_router(posts.router, prefix="/api/posts", tags=["Posts"])
-app.include_router(media.router, prefix="/api/media", tags=["Media Analysis"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(hashtags.router, prefix="/api/hashtags", tags=["Hashtags"])
-app.include_router(timing.router, prefix="/api/timing", tags=["Timing"])
 app.include_router(comments.router, prefix="/api/comments", tags=["Comments"])
 app.include_router(dm.router, prefix="/api/dm", tags=["Direct Messages"])
 app.include_router(alerts.router, prefix="/api/alerts", tags=["Alerts"])

@@ -8,8 +8,7 @@ runtime_state: dict[str, dict[str, float | bool | str | None]] = {
     "app": {"started_at": None, "status": "stopped"},
     "database": {"status": "unknown", "checked_at": None},
     "elasticsearch": {"status": "unknown", "checked_at": None},
-    "kafka": {"status": "unknown", "checked_at": None},
-    "alert_consumer": {"status": "unknown", "started_at": None},
+    "celery_monitor": {"status": "scheduled", "started_at": None},
 }
 
 

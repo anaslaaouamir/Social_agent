@@ -48,6 +48,8 @@ export default function CreatePostPage() {
   const [showHashtagLib, setShowHashtagLib] = useState(false)
   const [mediaLib, setMediaLib] = useState<MediaItem[]>([])
   const [hashtagLib, setHashtagLib] = useState<HashtagGroup[]>([])
+  const [activeMediaGroup, setActiveMediaGroup] = useState('Tous')
+  const [activeHashtagGroupId, setActiveHashtagGroupId] = useState('')
 
   const [genDesc, setGenDesc] = useState('')
   const [genBrand, setGenBrand] = useState('')
@@ -58,8 +60,16 @@ export default function CreatePostPage() {
     mediaApi.library.list()
       .then(setMediaLib)
       .catch(() => setMediaLib([]))
-    setHashtagLib(hashtagsApi.library.list())
+    const savedHashtags = hashtagsApi.library.list()
+    setHashtagLib(savedHashtags)
+    setActiveHashtagGroupId((current) => current || savedHashtags[0]?.id || '')
   }, [])
+
+  const mediaGroups = ['Tous', ...Array.from(new Set(mediaLib.map(item => item.category || 'General')))]
+  const filteredMediaLib = activeMediaGroup === 'Tous'
+    ? mediaLib
+    : mediaLib.filter(item => (item.category || 'General') === activeMediaGroup)
+  const activeHashtagGroup = hashtagLib.find(group => group.id === activeHashtagGroupId) || hashtagLib[0] || null
 
   useEffect(() => {
     if (!editId) return
@@ -130,17 +140,18 @@ export default function CreatePostPage() {
     const platform = accounts.find((a: any) => selectedAccounts.includes(a.id))?.platform || 'instagram'
     setGeneratingHashtags(true)
     try {
-      const res = await hashtagsApi.recommend({
+      const res = await hashtagsApi.generate({
         caption: caption || genDesc,
+        topic: caption || genDesc,
         platform,
         n_hashtags: 6,
         languages: ['fr'],
       })
-      const tags = res.data.all_hashtags?.slice(0, 6) || []
+      const tags = res.data.hashtags?.slice(0, 6) || []
       setHashtags(tags)
       toast.success(`${tags.length} hashtags generes`)
-    } catch {
-      toast.error('Erreur generation hashtags')
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Erreur generation hashtags')
     } finally {
       setGeneratingHashtags(false)
     }
@@ -323,30 +334,79 @@ export default function CreatePostPage() {
             </div>
 
             {showMediaLib && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 12, maxHeight: 180, overflowY: 'auto' }}>
+              <div style={{ marginBottom: 12, padding: 10, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)' }}>
                 {mediaLib.length === 0 ? (
-                  <p style={{ fontSize: 12, color: 'var(--text-3)', gridColumn: '1/-1' }}>Bibliotheque vide</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>Bibliotheque vide</p>
                 ) : (
-                  mediaLib.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => {
-                        if (!mediaUrls.includes(item.url)) setMediaUrls((prev) => [...prev, item.url])
-                        setShowMediaLib(false)
-                      }}
-                      style={{
-                        aspectRatio: '1',
-                        borderRadius: 8,
-                        overflow: 'hidden',
-                        cursor: 'pointer',
-                        background: 'var(--bg-2)',
-                        border: '2px solid',
-                        borderColor: mediaUrls.includes(item.url) ? 'var(--accent)' : 'transparent',
-                      }}
-                    >
-                      {item.url ? <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
+                  <>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                      {mediaGroups.map((group) => (
+                        <button
+                          key={group}
+                          onClick={() => setActiveMediaGroup(group)}
+                          style={{
+                            padding: '4px 9px',
+                            borderRadius: 7,
+                            fontSize: 11,
+                            cursor: 'pointer',
+                            background: activeMediaGroup === group ? 'rgba(108,99,255,0.15)' : 'transparent',
+                            border: `1px solid ${activeMediaGroup === group ? 'rgba(108,99,255,0.3)' : 'var(--border)'}`,
+                            color: activeMediaGroup === group ? 'var(--accent-2)' : 'var(--text-3)',
+                          }}
+                        >
+                          {group}
+                        </button>
+                      ))}
                     </div>
-                  ))
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+                      {filteredMediaLib.map((item) => {
+                        const isSelected = mediaUrls.includes(item.url)
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => {
+                              setMediaUrls((prev) => isSelected ? prev.filter(url => url !== item.url) : [...prev, item.url])
+                            }}
+                            title={item.name}
+                            style={{
+                              aspectRatio: '1',
+                              borderRadius: 8,
+                              overflow: 'hidden',
+                              cursor: 'pointer',
+                              background: 'var(--bg-1)',
+                              border: '2px solid',
+                              borderColor: isSelected ? 'var(--accent)' : 'transparent',
+                              position: 'relative',
+                            }}
+                          >
+                            {item.url ? <img src={item.url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
+                            {isSelected && (
+                              <span style={{
+                                position: 'absolute',
+                                top: 6,
+                                right: 6,
+                                width: 18,
+                                height: 18,
+                                borderRadius: '50%',
+                                background: 'var(--accent)',
+                                color: '#fff',
+                                fontSize: 11,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}>
+                                OK
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{mediaUrls.length} media(s) selectionne(s)</span>
+                      <Btn size="sm" variant="ghost" onClick={() => setShowMediaLib(false)}>Terminer</Btn>
+                    </div>
+                  </>
                 )}
               </div>
             )}
@@ -456,35 +516,66 @@ export default function CreatePostPage() {
             </div>
 
             {showHashtagLib && (
-              <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 12, padding: 10, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)' }}>
                 {hashtagLib.length === 0 ? (
-                  <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Bibliotheque vide</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>Bibliotheque vide. Utilisez IA ou creez un groupe dans Hashtags.</p>
                 ) : (
-                  hashtagLib.map((group) => (
-                    <div key={group.id} style={{ marginBottom: 8 }}>
-                      <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4 }}>{group.name}</div>
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        {group.hashtags.map((tag) => (
-                          <span
-                            key={tag}
-                            onClick={() => addHashtag(tag)}
-                            style={{
-                              padding: '2px 8px',
-                              borderRadius: 6,
-                              fontSize: 11,
-                              cursor: 'pointer',
-                              background: hashtags.includes(tag) ? 'rgba(108,99,255,0.15)' : 'rgba(108,99,255,0.06)',
-                              color: 'var(--accent-2)',
-                              border: '1px solid rgba(108,99,255,0.15)',
-                            }}
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                        <Btn size="sm" variant="ghost" onClick={() => group.hashtags.forEach(addHashtag)}>Tout ajouter</Btn>
-                      </div>
+                  <>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                      {hashtagLib.map((group) => (
+                        <button
+                          key={group.id}
+                          onClick={() => setActiveHashtagGroupId(group.id)}
+                          style={{
+                            padding: '4px 9px',
+                            borderRadius: 7,
+                            fontSize: 11,
+                            cursor: 'pointer',
+                            background: activeHashtagGroup?.id === group.id ? 'rgba(108,99,255,0.15)' : 'transparent',
+                            border: `1px solid ${activeHashtagGroup?.id === group.id ? 'rgba(108,99,255,0.3)' : 'var(--border)'}`,
+                            color: activeHashtagGroup?.id === group.id ? 'var(--accent-2)' : 'var(--text-3)',
+                          }}
+                        >
+                          {group.name}
+                        </button>
+                      ))}
                     </div>
-                  ))
+                    {activeHashtagGroup && (
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                            {activeHashtagGroup.platform} - {activeHashtagGroup.topic || activeHashtagGroup.name}
+                          </span>
+                          <Btn size="sm" variant="ghost" onClick={() => activeHashtagGroup.hashtags.forEach(addHashtag)}>Tout ajouter</Btn>
+                        </div>
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                          {activeHashtagGroup.hashtags.map((tag) => {
+                            const normalized = tag.startsWith('#') ? tag : `#${tag}`
+                            const isSelected = hashtags.includes(normalized)
+                            return (
+                              <span
+                                key={tag}
+                                onClick={() => isSelected
+                                  ? setHashtags((prev) => prev.filter((item) => item !== normalized))
+                                  : addHashtag(tag)}
+                                style={{
+                                  padding: '2px 8px',
+                                  borderRadius: 6,
+                                  fontSize: 11,
+                                  cursor: 'pointer',
+                                  background: isSelected ? 'rgba(108,99,255,0.18)' : 'rgba(108,99,255,0.06)',
+                                  color: 'var(--accent-2)',
+                                  border: '1px solid rgba(108,99,255,0.15)',
+                                }}
+                              >
+                                {normalized}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

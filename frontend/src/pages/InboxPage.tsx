@@ -1,16 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 
 import { PageHeader, Card, Btn, Spinner, AccountScopeTabs, PlatformIcon } from '../components/ui'
-import { dmApi, postsApi } from '../lib/api'
-import { useAppStore } from '../store'
+import { dmApi, nlpApi, postsApi } from '../lib/api'
+import { useAppStore, useResourceCache } from '../store'
 
 function logInboxError(message: unknown, options?: unknown) {
   console.warn('[Inbox]', message, options || '')
 }
 
-type SentimentType = 'positive' | 'negative' | 'neutral' | 'spam' | 'toxic' | 'female'
+type SentimentType = 'positive' | 'negative' | 'neutral' | 'spam' | 'toxic' | 'female' | 'human'
 type InboxTab = 'messages' | 'posts'
+
+const INBOX_REFRESH_MS = 8000
+const POSTS_REFRESH_MS = 45000
 
 interface DM {
   id: string
@@ -38,6 +42,8 @@ interface DM {
   timestamp: string
   analyzed?: boolean
   avatar?: string
+  autoReplied?: boolean
+  requiresHuman?: boolean
 }
 
 interface ConversationMessage {
@@ -52,6 +58,8 @@ interface ConversationMessage {
   isLead?: boolean
   isToxic?: boolean
   isSpam?: boolean
+  autoReplied?: boolean
+  requiresHuman?: boolean
 }
 
 interface PostComment {
@@ -69,6 +77,8 @@ interface PostComment {
   replyTargetId?: string
   replyParentId?: string
   replyActionLabel?: string
+  autoReplied?: boolean
+  requiresHuman?: boolean
 }
 
 interface Post {
@@ -82,8 +92,6 @@ interface Post {
   mediaUrl?: string
   mediaType?: string
   predictedEngagementPercent?: number
-  predictedReach?: number
-  engagementConfidence?: number
 }
 
 const SENTIMENT_COLORS: Record<string, { bg: string; color: string; border: string }> = {
@@ -93,6 +101,7 @@ const SENTIMENT_COLORS: Record<string, { bg: string; color: string; border: stri
   spam: { bg: 'rgba(249,115,22,0.12)', color: 'var(--orange)', border: 'rgba(249,115,22,0.25)' },
   toxic: { bg: 'rgba(168,85,247,0.12)', color: '#a855f7', border: 'rgba(168,85,247,0.25)' },
   female: { bg: 'rgba(236,72,153,0.12)', color: '#ec4899', border: 'rgba(236,72,153,0.25)' },
+  human: { bg: 'rgba(249,115,22,0.12)', color: 'var(--orange)', border: 'rgba(249,115,22,0.25)' },
 }
 
 function LabelBadge({ label, type }: { label: string; type?: string }) {
@@ -124,17 +133,9 @@ function messengerPolicyHint(dm: DM) {
   return dm.reply_disabled_reason || "La fenetre Messenger de 24h est expiree. Le client doit renvoyer un message avant une reponse libre."
 }
 
-function validReplyExample(dm: DM | null) {
-  if (!dm) return ''
-  if (dm.platform === 'facebook') {
-    return "Bonjour, merci pour votre message. Oui, nous pouvons vous aider. Pouvez-vous préciser les fonctionnalités juridiques souhaitées ?"
-  }
-  return "Bonjour, merci pour votre message. Je vous aide avec plaisir, pouvez-vous me donner plus de details ?"
-}
-
 function MessageAnalysisBadges({ message }: { message: ConversationMessage }) {
   if (message.isFromPage) return null
-  const hasAnalysis = message.label || message.isQuestion || message.isLead || message.isToxic || message.isSpam
+  const hasAnalysis = message.label || message.isQuestion || message.isLead || message.isToxic || message.isSpam || message.requiresHuman
   if (!hasAnalysis) return null
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
@@ -143,6 +144,7 @@ function MessageAnalysisBadges({ message }: { message: ConversationMessage }) {
       {message.isLead && <LabelBadge label="Lead" />}
       {message.isToxic && <LabelBadge label="Toxique" type="toxic" />}
       {message.isSpam && <LabelBadge label="Spam" type="spam" />}
+      {message.requiresHuman && <LabelBadge label="Humain requis" type="human" />}
     </div>
   )
 }
@@ -166,32 +168,107 @@ function looksLikeVideo(post: Post | null) {
   return mediaType === 'video' || mediaType === 'reel' || mediaType === 'reels' || mediaUrl.endsWith('.mp4') || mediaUrl.includes('.mp4?')
 }
 
+function readRagAutoReplySettings() {
+  const confidenceThreshold = Number(localStorage.getItem('rag_confidenceThreshold') || '0.6')
+  return {
+    enabled: localStorage.getItem('rag_autoReply') === 'true',
+    dms: localStorage.getItem('rag_scope_dms') !== 'false',
+    comments: localStorage.getItem('rag_scope_comments') !== 'false',
+    confidenceThreshold: Number.isFinite(confidenceThreshold) ? confidenceThreshold : 0.6,
+    fallbackTemplates: {
+      fr: localStorage.getItem('rag_fallback_fr') || 'Merci pour votre message. Notre equipe vous repondra dans les plus brefs delais.',
+      ar: localStorage.getItem('rag_fallback_ar') || 'شكرا على رسالتك. سيرد عليك فريقنا في أقرب وقت.',
+      darija: localStorage.getItem('rag_fallback_darija') || 'شكرا على الرسالة ديالك. الفريق ديالنا غادي يجاوبك فاقرب وقت.',
+      en: localStorage.getItem('rag_fallback_en') || 'Thank you for your message. Our team will get back to you shortly.',
+    },
+    accountEnabled: (accountId?: string) => !accountId || localStorage.getItem(`rag_account_${accountId}`) !== 'false',
+  }
+}
+
+function getHumanRequiredIds() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem('rag_humanRequiredIds') || '[]'))
+  } catch {
+    return new Set<string>()
+  }
+}
+
+function saveHumanRequiredIds(ids: Set<unknown>) {
+  localStorage.setItem('rag_humanRequiredIds', JSON.stringify(Array.from(ids).slice(-500)))
+}
+
+function getAutoRepliedIds() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem('rag_autoRepliedIds') || '[]'))
+  } catch {
+    return new Set<string>()
+  }
+}
+
+function saveAutoRepliedIds(ids: Set<unknown>) {
+  localStorage.setItem('rag_autoRepliedIds', JSON.stringify(Array.from(ids).slice(-500)))
+}
+
+function stableTextKey(text: string) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180)
+}
+
+function stableAutoReplyKey(parts: Array<string | undefined>) {
+  return parts.map(part => String(part || '').trim()).join(':')
+}
+
+function appendAutoReplyHistory(entry: {
+  id: string
+  client: string
+  type: 'dm' | 'comment'
+  platform: string
+  incoming: string
+  reply: string
+  confidence?: number
+  deliveryStatus?: string
+  requiresHuman?: boolean
+}) {
+  try {
+    const current = JSON.parse(localStorage.getItem('rag_autoReplyHistory') || '[]')
+    const history = Array.isArray(current) ? current : []
+    const next = [
+      { ...entry, time: new Date().toISOString() },
+      ...history.filter(item => item?.id !== entry.id),
+    ].slice(0, 10)
+    localStorage.setItem('rag_autoReplyHistory', JSON.stringify(next))
+    window.dispatchEvent(new Event('rag-history:changed'))
+  } catch {
+    localStorage.setItem('rag_autoReplyHistory', JSON.stringify([{ ...entry, time: new Date().toISOString() }]))
+    window.dispatchEvent(new Event('rag-history:changed'))
+  }
+}
+
+function isAfterAutoReplyEnabled(timestamp?: string) {
+  const enabledAt = localStorage.getItem('rag_autoReplyEnabledAt')
+  if (!enabledAt || !timestamp) return false
+  const enabledMs = Date.parse(enabledAt)
+  const itemMs = Date.parse(timestamp)
+  if (Number.isNaN(enabledMs) || Number.isNaN(itemMs)) return false
+  return itemMs >= enabledMs
+}
+
 async function analyzeMessage(text: string): Promise<Partial<DM>> {
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: `Analyse ce message client et reponds UNIQUEMENT avec un JSON:
-{"sentiment":"positive|negative|neutral|spam|toxic","sentimentScore":0.0,"emotion":"joie|colere|tristesse|peur|surprise|degout|neutre","isQuestion":true,"isLead":false,"isToxic":false,"isSpam":false,"suggestedReply":"reponse suggeree en francais"}
-Message: "${text}"`,
-        }],
-      }),
-    })
-    const data = await response.json()
-    const txt = data.content?.[0]?.text || '{}'
-    return JSON.parse(String(txt).replace(/```json|```/g, '').trim())
+    const response = await dmApi.analyze({ message: text })
+    return response.data || { sentiment: 'neutral', analyzed: true }
   } catch {
     return { sentiment: 'neutral', analyzed: true }
   }
 }
 
 export default function InboxPage() {
+  const [searchParams] = useSearchParams()
   const { accounts, selectedAccount, setSelectedAccount } = useAppStore()
+  const { getResource, setResource } = useResourceCache()
   const [tab, setTab] = useState<InboxTab>('messages')
   const [loadingMessages, setLoadingMessages] = useState(true)
   const [loadingPosts, setLoadingPosts] = useState(true)
@@ -212,16 +289,189 @@ export default function InboxPage() {
   const [analyzingAll, setAnalyzingAll] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [sendingReply, setSendingReply] = useState(false)
+  const messagesRefreshInFlight = useRef(false)
+  const commentsRefreshInFlight = useRef(false)
 
   const activeAccountId = selectedAccount?.id
+  const targetTab = searchParams.get('tab')
+  const targetDm = searchParams.get('dm')
+  const targetPost = searchParams.get('post')
+  const targetFilter = searchParams.get('filter')
+  const messagesCacheKey = `inbox:messages:${activeAccountId || 'all'}`
+  const postsCacheKey = `inbox:posts:${activeAccountId || 'all'}`
   const dmPlatforms = Array.from(new Set(dms.map((dm) => dm.platform)))
   const postPlatforms = Array.from(new Set(posts.map((post) => post.platform)))
 
-  const loadMessages = async () => {
-    setLoadingMessages(true)
+  const applyDmAutoReplies = async (items: DM[]) => {
+    const settings = readRagAutoReplySettings()
+    if (!settings.enabled || !settings.dms) return items
+
+    const replied = getAutoRepliedIds()
+    const humanRequired = getHumanRequiredIds()
+    const next = items.map(item => ({ ...item, messages: item.messages ? [...item.messages] : [] }))
+    for (const dm of next) {
+      if (!settings.accountEnabled(dm.account_id)) continue
+      const incomingMessages = (dm.messages?.length ? dm.messages : [{
+        id: dm.id,
+        text: dm.text,
+        timestamp: dm.timestamp,
+        isFromPage: false,
+      }]).filter(message => !message.isFromPage && message.text && isAfterAutoReplyEnabled(message.timestamp)).slice(-1)
+
+      for (const message of incomingMessages) {
+        const legacyKey = `dm:${dm.platform}:${message.id}`
+        const key = stableAutoReplyKey([
+          'dm',
+          dm.account_id,
+          dm.platform,
+          dm.recipient_id || dm.reply_target_id || dm.id,
+          message.timestamp || dm.timestamp,
+          stableTextKey(message.text),
+        ])
+        if (replied.has(key) || replied.has(legacyKey)) {
+          replied.add(key)
+          message.autoReplied = true
+          dm.autoReplied = true
+          if (humanRequired.has(key) || humanRequired.has(legacyKey)) {
+            humanRequired.add(key)
+            message.requiresHuman = true
+            dm.requiresHuman = true
+          }
+          continue
+        }
+        try {
+          const response = await nlpApi.ragAutoReply({
+            message_id: message.id,
+            content: message.text,
+            platform: dm.platform,
+            type: 'dm',
+            language: 'auto',
+            confidence_threshold: settings.confidenceThreshold,
+            fallback_templates: settings.fallbackTemplates,
+            account_id: dm.account_id,
+            recipient_id: dm.recipient_id,
+            reply_mode: dm.reply_mode || 'dm',
+            reply_target_id: dm.reply_target_id || dm.recipient_id || message.id,
+            reply_parent_id: dm.reply_parent_id,
+          })
+          const payload = response.data || {}
+          replied.add(key)
+          replied.add(legacyKey)
+          message.autoReplied = true
+          dm.autoReplied = true
+          if (payload.requires_human || payload.delivery_status === 'delivery_failed' || payload.delivery_status === 'account_not_found') {
+            humanRequired.add(key)
+            humanRequired.add(legacyKey)
+            message.requiresHuman = true
+            dm.requiresHuman = true
+          }
+          appendAutoReplyHistory({
+            id: key,
+            client: dm.author,
+            type: 'dm',
+            platform: dm.platform,
+            incoming: message.text,
+            reply: String(payload.reply || ''),
+            confidence: Number(payload.confidence ?? 0),
+            deliveryStatus: payload.delivery_status,
+            requiresHuman: !!payload.requires_human,
+          })
+        } catch (err) {
+          logInboxError('Auto-reponse RAG DM ignoree', err)
+        }
+      }
+    }
+    saveAutoRepliedIds(replied)
+    saveHumanRequiredIds(humanRequired)
+    return next
+  }
+
+  const applyCommentAutoReplies = async (items: PostComment[]) => {
+    const settings = readRagAutoReplySettings()
+    if (!settings.enabled || !settings.comments) return items
+
+    const replied = getAutoRepliedIds()
+    const humanRequired = getHumanRequiredIds()
+    const next = items.map(item => ({ ...item }))
+    if (!settings.accountEnabled(selectedPost?.account_id)) return next
+    for (const comment of next) {
+      if (!isAfterAutoReplyEnabled(comment.timestamp)) continue
+      const legacyKey = `comment:${comment.platform}:${comment.id}`
+      const key = stableAutoReplyKey([
+        'comment',
+        selectedPost?.account_id,
+        comment.platform,
+        selectedPost?.id || comment.replyParentId,
+        comment.replyTargetId || comment.id,
+        comment.timestamp,
+        stableTextKey(comment.text),
+      ])
+      if (replied.has(key) || replied.has(legacyKey)) {
+        replied.add(key)
+        comment.autoReplied = true
+        if (humanRequired.has(key) || humanRequired.has(legacyKey)) {
+          humanRequired.add(key)
+          comment.requiresHuman = true
+        }
+        continue
+      }
+      try {
+        const response = await nlpApi.ragAutoReply({
+          message_id: comment.replyTargetId || comment.id,
+          content: comment.text,
+          platform: comment.platform,
+          type: 'comment',
+          language: 'auto',
+          confidence_threshold: settings.confidenceThreshold,
+          fallback_templates: settings.fallbackTemplates,
+          account_id: selectedPost?.account_id,
+          reply_mode: comment.replyMode || 'comment',
+          reply_target_id: comment.replyTargetId || comment.id,
+          reply_parent_id: comment.replyParentId || selectedPost?.id,
+        })
+        const payload = response.data || {}
+        replied.add(key)
+        replied.add(legacyKey)
+        comment.autoReplied = true
+        if (payload.requires_human || payload.delivery_status === 'delivery_failed' || payload.delivery_status === 'account_not_found') {
+          humanRequired.add(key)
+          humanRequired.add(legacyKey)
+          comment.requiresHuman = true
+        }
+        appendAutoReplyHistory({
+          id: key,
+          client: comment.author,
+          type: 'comment',
+          platform: comment.platform,
+          incoming: comment.text,
+          reply: String(payload.reply || ''),
+          confidence: Number(payload.confidence ?? 0),
+          deliveryStatus: payload.delivery_status,
+          requiresHuman: !!payload.requires_human,
+        })
+      } catch (err) {
+        logInboxError('Auto-reponse RAG commentaire ignoree', err)
+      }
+    }
+    saveAutoRepliedIds(replied)
+    saveHumanRequiredIds(humanRequired)
+    return next
+  }
+
+  const loadMessages = async (options: { background?: boolean } = {}) => {
+    if (options.background && messagesRefreshInFlight.current) return
+    if (options.background) messagesRefreshInFlight.current = true
+    const cached = getResource<DM[]>(messagesCacheKey)
+    if (!options.background && cached?.data?.length) {
+      setDms(cached.data)
+      setSelectedDm(curr => cached.data.find((item: DM) => item.id === curr?.id) || curr || cached.data[0] || null)
+      setLoadingMessages(false)
+    } else if (!options.background) {
+      setLoadingMessages(true)
+    }
     try {
       const res = await dmApi.liveInbox(activeAccountId ? { account_id: activeAccountId, kind: 'dm' } : { kind: 'dm' })
-      const items = (res.data.items || []).map((item: any) => ({
+      const rawItems = (res.data.items || []).map((item: any) => ({
         id: String(item.id),
         account_id: String(item.account_id),
         recipient_id: item.recipient_id ? String(item.recipient_id) : '',
@@ -246,6 +496,8 @@ export default function InboxPage() {
           isLead: !!message.is_lead,
           isToxic: !!message.is_toxic,
           isSpam: !!message.is_spam,
+          autoReplied: getAutoRepliedIds().has(`dm:${item.platform}:${String(message.id)}`),
+          requiresHuman: getHumanRequiredIds().has(`dm:${item.platform}:${String(message.id)}`),
         })),
         sourceType: item.source_type || 'dm',
         sentiment: item.label || item.sentiment || 'neutral',
@@ -258,8 +510,12 @@ export default function InboxPage() {
         timestamp: item.timestamp || '',
         avatar: (item.sender_name || '?').charAt(0).toUpperCase(),
         analyzed: !!item.label,
+        autoReplied: getAutoRepliedIds().has(`dm:${item.platform}:${String(item.id)}`),
+        requiresHuman: getHumanRequiredIds().has(`dm:${item.platform}:${String(item.id)}`),
       }))
+      const items = await applyDmAutoReplies(rawItems)
       setDms(items)
+      setResource(messagesCacheKey, items)
       setSelectedDm(curr => items.find((item: DM) => item.id === curr?.id) || items[0] || null)
       if (res.data.errors?.length) {
         logInboxError(formatPlatformErrors(res.data.errors, 'Inbox') || `Certaines inbox n'ont pas pu etre chargees (${res.data.errors.length})`, {
@@ -267,14 +523,22 @@ export default function InboxPage() {
         })
       }
     } catch {
-      logInboxError('Erreur de chargement des messages')
+      if (!cached?.data?.length) logInboxError('Erreur de chargement des messages')
     } finally {
       setLoadingMessages(false)
+      if (options.background) messagesRefreshInFlight.current = false
     }
   }
 
-  const loadPosts = async () => {
-    setLoadingPosts(true)
+  const loadPosts = async (options: { background?: boolean } = {}) => {
+    const cached = getResource<Post[]>(postsCacheKey)
+    if (!options.background && cached?.data?.length) {
+      setPosts(cached.data)
+      setSelectedPost(curr => cached.data.find((item: Post) => item.id === curr?.id) || curr || cached.data[0] || null)
+      setLoadingPosts(false)
+    } else if (!options.background) {
+      setLoadingPosts(true)
+    }
     try {
       const res = await postsApi.liveList(activeAccountId ? { account_id: activeAccountId, limit: 20 } : { limit: 20 })
       const items = (res.data.items || []).map((item: any) => ({
@@ -288,10 +552,9 @@ export default function InboxPage() {
         mediaUrl: item.media_url || '',
         mediaType: item.media_type || '',
         predictedEngagementPercent: item.predicted_engagement_percent ?? undefined,
-        predictedReach: item.predicted_reach ?? undefined,
-        engagementConfidence: item.engagement_confidence ?? undefined,
       }))
       setPosts(items)
+      setResource(postsCacheKey, items)
       setSelectedPost(curr => items.find((item: Post) => item.id === curr?.id) || items[0] || null)
       if (res.data.errors?.length) {
         logInboxError(formatPlatformErrors(res.data.errors, 'Plateforme') || `Certaines plateformes n'ont pas pu etre chargees (${res.data.errors.length})`, {
@@ -299,24 +562,34 @@ export default function InboxPage() {
         })
       }
     } catch {
-      logInboxError('Erreur de chargement des publications')
+      if (!cached?.data?.length) logInboxError('Erreur de chargement des publications')
     } finally {
       setLoadingPosts(false)
     }
   }
 
-  const loadComments = async (post: Post | null) => {
+  const loadComments = async (post: Post | null, options: { background?: boolean } = {}) => {
+    if (options.background && commentsRefreshInFlight.current) return
+    if (options.background) commentsRefreshInFlight.current = true
     if (!post) {
       setComments([])
       setReplyingCommentId(null)
       setCommentReplyText('')
       setPostReplyText('')
+      if (options.background) commentsRefreshInFlight.current = false
       return
     }
-    setLoadingComments(true)
+    const key = `inbox:comments:${post.account_id}:${post.id}`
+    const cached = getResource<PostComment[]>(key)
+    if (!options.background && cached?.data?.length) {
+      setComments(cached.data)
+      setLoadingComments(false)
+    } else if (!options.background) {
+      setLoadingComments(true)
+    }
     try {
       const res = await postsApi.liveComments(post.account_id, post.id)
-      setComments((res.data.items || []).map((item: any) => ({
+      const rawItems = (res.data.items || []).map((item: any) => ({
         id: String(item.id),
         author: item.author || 'Utilisateur',
         platform: item.platform,
@@ -331,15 +604,23 @@ export default function InboxPage() {
         replyTargetId: item.reply_target_id ? String(item.reply_target_id) : '',
         replyParentId: item.reply_parent_id ? String(item.reply_parent_id) : '',
         replyActionLabel: item.reply_action_label || 'Repondre au commentaire',
-      })))
+        autoReplied: getAutoRepliedIds().has(`comment:${item.platform}:${String(item.id)}`),
+        requiresHuman: getHumanRequiredIds().has(`comment:${item.platform}:${String(item.id)}`),
+      }))
+      const items = await applyCommentAutoReplies(rawItems)
+      setComments(items)
+      setResource(key, items)
       setReplyingCommentId(null)
       setCommentReplyText('')
       setPostReplyText('')
     } catch {
-      setComments([])
-      logInboxError('Erreur de chargement des commentaires')
+      if (!cached?.data?.length) {
+        setComments([])
+        logInboxError('Erreur de chargement des commentaires')
+      }
     } finally {
       setLoadingComments(false)
+      if (options.background) commentsRefreshInFlight.current = false
     }
   }
 
@@ -352,10 +633,66 @@ export default function InboxPage() {
     }
     loadMessages()
     loadPosts()
+    const refreshMessages = () => {
+      if (!document.hidden) loadMessages({ background: true })
+    }
+    const refreshAll = () => {
+      if (document.hidden) return
+      loadMessages({ background: true })
+      loadPosts({ background: true })
+    }
+    const messagesInterval = window.setInterval(refreshMessages, INBOX_REFRESH_MS)
+    const postsInterval = window.setInterval(() => {
+      if (!document.hidden) loadPosts({ background: true })
+    }, POSTS_REFRESH_MS)
+    window.addEventListener('focus', refreshAll)
+    document.addEventListener('visibilitychange', refreshAll)
+    return () => {
+      window.clearInterval(messagesInterval)
+      window.clearInterval(postsInterval)
+      window.removeEventListener('focus', refreshAll)
+      document.removeEventListener('visibilitychange', refreshAll)
+    }
   }, [activeAccountId, accounts.length])
 
   useEffect(() => {
+    if (targetTab === 'posts') setTab('posts')
+    if (targetTab === 'messages') setTab('messages')
+  }, [targetTab])
+
+  useEffect(() => {
+    if (!targetDm || !dms.length) return
+    const match = dms.find((dm) => dm.id === targetDm || dm.reply_target_id === targetDm)
+    if (match) {
+      setTab('messages')
+      setSelectedDm(match)
+    }
+  }, [targetDm, dms])
+
+  useEffect(() => {
+    if (!targetPost || !posts.length) return
+    const match = posts.find((post) => post.id === targetPost)
+    if (match) {
+      setTab('posts')
+      setSelectedPost(match)
+      if (targetFilter) setCommentFilter(targetFilter)
+    }
+  }, [targetPost, targetFilter, posts])
+
+  useEffect(() => {
     loadComments(selectedPost)
+    if (!selectedPost) return
+    const refreshComments = () => {
+      if (!document.hidden) loadComments(selectedPost, { background: true })
+    }
+    const interval = window.setInterval(refreshComments, INBOX_REFRESH_MS)
+    window.addEventListener('focus', refreshComments)
+    document.addEventListener('visibilitychange', refreshComments)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', refreshComments)
+      document.removeEventListener('visibilitychange', refreshComments)
+    }
   }, [selectedPost?.id])
 
   const postReplyConfig = useMemo(() => {
@@ -430,10 +767,11 @@ export default function InboxPage() {
       return
     }
     setSendingReply(true)
+    const sentText = replyText.trim()
     try {
       await dmApi.send({
         account_id: selectedDm.account_id,
-        message: replyText.trim(),
+        message: sentText,
         recipient_id: selectedDm.recipient_id,
         reply_mode: selectedDm.reply_mode,
         reply_target_id: selectedDm.reply_target_id,
@@ -441,6 +779,23 @@ export default function InboxPage() {
         conversation_id: selectedDm.id,
         source_type: selectedDm.sourceType,
       })
+      const sentMessage: ConversationMessage = {
+        id: `local:${selectedDm.id}:${Date.now()}`,
+        text: sentText,
+        timestamp: new Date().toISOString(),
+        author: 'Vous',
+        isFromPage: true,
+      }
+      const appendSentMessage = (dm: DM): DM => ({
+        ...dm,
+        text: sentText,
+        timestamp: sentMessage.timestamp || dm.timestamp,
+        messages: [...(dm.messages?.length ? dm.messages : selectedConversationMessages), sentMessage],
+      })
+      const nextDms = dms.map(dm => dm.id === selectedDm.id ? appendSentMessage(dm) : dm)
+      setDms(nextDms)
+      setResource(messagesCacheKey, nextDms)
+      setSelectedDm(dm => dm && dm.id === selectedDm.id ? appendSentMessage(dm) : dm)
       toast.success('Reponse envoyee')
       setReplyText('')
     } catch (err: any) {
@@ -636,6 +991,8 @@ export default function InboxPage() {
                       {dm.sourceType && dm.sourceType !== 'dm' && <LabelBadge label={dm.sourceType} />}
                       {dm.analyzed && dm.sentiment && <LabelBadge label={dm.sentiment} type={dm.sentiment} />}
                       {dm.isLead && <LabelBadge label="Lead" />}
+                      {dm.autoReplied && <LabelBadge label="Auto-repondu" type="positive" />}
+                      {dm.requiresHuman && <LabelBadge label="Humain requis" type="human" />}
                     </div>
                   </div>
                 ))}
@@ -663,6 +1020,8 @@ export default function InboxPage() {
                         {selectedDm.isLead && <LabelBadge label="Lead" />}
                         {selectedDm.isToxic && <LabelBadge label="Toxique" type="toxic" />}
                         {selectedDm.isSpam && <LabelBadge label="Spam" type="spam" />}
+                        {selectedDm.autoReplied && <LabelBadge label="Auto-repondu" type="positive" />}
+                        {selectedDm.requiresHuman && <LabelBadge label="Humain requis" type="human" />}
                         {!selectedDm.analyzed && (
                           <Btn size="sm" variant="ghost" onClick={() => handleAnalyzeDm(selectedDm)} disabled={analyzingId === selectedDm.id}>
                             {analyzingId === selectedDm.id ? <Spinner /> : 'Analyser'}
@@ -695,6 +1054,11 @@ export default function InboxPage() {
                               {message.text}
                             </div>
                             {!message.isFromPage && <MessageAnalysisBadges message={message} />}
+                            {!message.isFromPage && message.autoReplied && (
+                              <div style={{ marginTop: 6 }}>
+                                <LabelBadge label="Auto-repondu" type="positive" />
+                              </div>
+                            )}
                             <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 4, textAlign: message.isFromPage ? 'right' : 'left' }}>
                               {formatInboxTime(message.timestamp)}
                             </div>
@@ -708,14 +1072,6 @@ export default function InboxPage() {
                         </div>
                       )}
 
-                      {!selectedDm.messages?.some(message => message.isFromPage) && (
-                        <>
-                          <div style={{ alignSelf: 'flex-end', maxWidth: '78%', background: 'linear-gradient(135deg, #6c63ff, #4f8cff)', color: 'white', borderRadius: '18px 18px 6px 18px', padding: '11px 14px', lineHeight: 1.55, fontSize: 14, boxShadow: '0 10px 24px rgba(79,140,255,0.18)' }}>
-                            {validReplyExample(selectedDm)}
-                          </div>
-                          <div style={{ alignSelf: 'flex-end', color: 'var(--text-3)', fontSize: 11, marginTop: -8 }}>Exemple de reponse valide dans la fenetre 24h</div>
-                        </>
-                      )}
                     </div>
 
                     <div style={{ padding: 18, borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
@@ -888,16 +1244,9 @@ export default function InboxPage() {
                     <span>❤ {post.likes}</span>
                     <span>💬 {post.commentsCount}</span>
                   </div>
-                  {(typeof post.predictedEngagementPercent === 'number' || typeof post.predictedReach === 'number') && (
+                  {typeof post.predictedEngagementPercent === 'number' && (
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                      {typeof post.predictedEngagementPercent === 'number' && (
-                        <LabelBadge label={`ER ${post.predictedEngagementPercent.toFixed(2)}%`} type="positive" />
-                      )}
-                      {typeof post.predictedReach === 'number' && (
-                        <span style={{ fontSize: 10, color: 'var(--text-3)' }}>
-                          Reach {post.predictedReach.toLocaleString('fr-FR')}
-                        </span>
-                      )}
+                      <LabelBadge label={`ER ${post.predictedEngagementPercent.toFixed(2)}%`} type="positive" />
                     </div>
                   )}
                 </div>
@@ -919,20 +1268,10 @@ export default function InboxPage() {
                     </div>
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{selectedPost.text}</div>
-                  {(typeof selectedPost.predictedEngagementPercent === 'number' || typeof selectedPost.engagementConfidence === 'number') && (
+                  {typeof selectedPost.predictedEngagementPercent === 'number' && (
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
                       {typeof selectedPost.predictedEngagementPercent === 'number' && (
                         <LabelBadge label={`Engagement predit ${selectedPost.predictedEngagementPercent.toFixed(2)}%`} type="positive" />
-                      )}
-                      {typeof selectedPost.predictedReach === 'number' && (
-                        <span style={{ fontSize: 11, color: 'var(--text-2)' }}>
-                          Reach predit {selectedPost.predictedReach.toLocaleString('fr-FR')}
-                        </span>
-                      )}
-                      {typeof selectedPost.engagementConfidence === 'number' && (
-                        <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
-                          Confiance {(selectedPost.engagementConfidence * 100).toFixed(0)}%
-                        </span>
                       )}
                     </div>
                   )}
@@ -996,6 +1335,8 @@ export default function InboxPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontWeight: 600, fontSize: 13 }}>{comment.author}</span>
                           {comment.label && <LabelBadge label={comment.label} type={comment.label} />}
+                          {comment.autoReplied && <LabelBadge label="Auto-repondu" type="positive" />}
+                          {comment.requiresHuman && <LabelBadge label="Humain requis" type="human" />}
                         </div>
                         <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{comment.timestamp ? new Date(comment.timestamp).toLocaleString('fr-FR') : ''}</span>
                       </div>

@@ -61,7 +61,7 @@ async def _pipeline_status(db: AsyncSession, account_ids: list) -> dict:
     scheduled_posts = int(scheduled_result.scalar() or 0)
 
     app_started_at = runtime_state.get("app", {}).get("started_at")
-    alert_started_at = runtime_state.get("alert_consumer", {}).get("started_at")
+    celery_monitor_started_at = runtime_state.get("celery_monitor", {}).get("started_at")
 
     return {
         "scheduler": {
@@ -84,13 +84,12 @@ async def _pipeline_status(db: AsyncSession, account_ids: list) -> dict:
             "status": "running" if runtime_state.get("app", {}).get("status") == "running" else "stopped",
             "last_update": latest_metric_ts or app_started_at,
         },
-        "alert_consumer": {
-            "status": str(runtime_state.get("alert_consumer", {}).get("status", "unknown")),
-            "last_run": alert_started_at or now,
+        "celery_monitor": {
+            "status": str(runtime_state.get("celery_monitor", {}).get("status", "unknown")),
+            "last_run": celery_monitor_started_at or now,
         },
         "elasticsearch": {"status": str(runtime_state.get("elasticsearch", {}).get("status", "unknown"))},
         "redis": {"status": "healthy"},
-        "kafka": {"status": str(runtime_state.get("kafka", {}).get("status", "unknown"))},
         "database": {"status": str(runtime_state.get("database", {}).get("status", "unknown"))},
     }
 

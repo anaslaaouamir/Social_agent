@@ -20,35 +20,11 @@ const SAMPLE_GROUPS: HashtagGroup[] = [
   { id: 'sg3', name: 'Food & Resto', topic: 'gastronomie', platform: 'tiktok', hashtags: ['#foodlovers', '#cuisinemarocaine', '#tajine', '#recette', '#foodtiktok'], createdAt: new Date().toISOString(), performance_score: 91 },
 ]
 
-// Generate hashtags via Claude API based on topic + platform trends
+// Generate hashtags through the backend LLM using live API trends as context.
 async function generateHashtagsWithLLM(topic: string, platform: string, n: number): Promise<string[]> {
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: `Génère exactement ${n} hashtags optimisés pour ${platform} sur le sujet: "${topic}".
-
-Tiens compte des tendances actuelles sur ${platform}. Mix de hashtags: populaires (>1M posts), moyens (100K-1M) et de niche (<100K) pour une portée optimale.
-
-Réponds UNIQUEMENT avec un JSON array de strings, sans explication ni formatage:
-["#hashtag1", "#hashtag2", ...]`
-        }]
-      })
-    })
-    const data = await response.json()
-    const text = data.content?.[0]?.text || '[]'
-    const cleaned = text.replace(/```json|```/g, '').trim()
-    const parsed = JSON.parse(cleaned)
-    return Array.isArray(parsed) ? parsed.slice(0, n) : []
-  } catch {
-    // Fallback
-    return Array.from({ length: n }, (_, i) => `#${topic.replace(/\s+/g, '')}${i > 0 ? i + 1 : ''}`)
-  }
+  const response = await hashtagsApi.generate({ topic, platform, n_hashtags: n })
+  const parsed = response.data?.hashtags || []
+  return Array.isArray(parsed) ? parsed.slice(0, n) : []
 }
 
 export default function HashtagLibraryPage() {
@@ -97,9 +73,9 @@ export default function HashtagLibraryPage() {
       setGroups(g => [group, ...g])
       setGenModal(false)
       setGenForm({ topic: '', platform: 'instagram', n_hashtags: 6 })
-      toast.success(`${tags.length} hashtags générés par IA !`)
-    } catch {
-      toast.error('Erreur de génération')
+      toast.success(`${tags.length} hashtags generes par IA !`)
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Aucune tendance API disponible')
     } finally {
       setGenerating(false)
     }
@@ -123,11 +99,11 @@ export default function HashtagLibraryPage() {
     <div style={{ padding: '28px 32px', maxWidth: 1100, overflowY: 'auto', minHeight: '100%' }}>
       <PageHeader
         title="Hashtag Library"
-        subtitle="Groupes de hashtags — générés par IA selon les tendances de chaque plateforme"
+        subtitle="Groupes de hashtags generes par IA selon les tendances live de chaque plateforme"
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <Btn variant="outline" onClick={() => setModal(true)}>+ Créer manuellement</Btn>
-            <Btn onClick={() => setGenModal(true)}>✨ Générer avec IA</Btn>
+            <Btn onClick={() => setGenModal(true)}>Generer avec IA</Btn>
           </div>
         }
       />
@@ -146,7 +122,7 @@ export default function HashtagLibraryPage() {
 
       {/* Groups grid */}
       {filtered.length === 0 ? (
-        <Empty icon="#" title="Aucun groupe" desc="Créez ou générez votre premier groupe de hashtags." action={<Btn onClick={() => setGenModal(true)}>✨ Générer avec IA</Btn>} />
+        <Empty icon="#" title="Aucun groupe" desc="Creez ou generez votre premier groupe de hashtags." action={<Btn onClick={() => setGenModal(true)}>Generer avec IA</Btn>} />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
           {filtered.map(group => (
@@ -197,10 +173,10 @@ export default function HashtagLibraryPage() {
       )}
 
       {/* Generate modal */}
-      <Modal open={genModal} onClose={() => setGenModal(false)} title="✨ Générer des hashtags avec IA" width={480}>
+      <Modal open={genModal} onClose={() => setGenModal(false)} title="Generer des hashtags avec IA" width={480}>
         <form onSubmit={handleGenerateLLM} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ padding: '10px 14px', background: 'rgba(108,99,255,0.06)', borderRadius: 8, border: '1px solid rgba(108,99,255,0.12)', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>
-            🤖 Notre IA analyse les tendances de la plateforme choisie et génère automatiquement 5-8 hashtags optimisés — mix populaires, moyens et de niche.
+            Notre IA genere les hashtags avec les tendances observees dans les posts live des comptes connectes.
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 12, color: 'var(--text-2)', marginBottom: 6 }}>Topic / Sujet</label>
@@ -233,7 +209,7 @@ export default function HashtagLibraryPage() {
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <Btn variant="ghost" onClick={() => setGenModal(false)}>Annuler</Btn>
             <Btn type="submit" disabled={generating}>
-              {generating ? <><Spinner /> Génération...</> : '✨ Générer'}
+              {generating ? <><Spinner /> Generation...</> : 'Generer avec IA'}
             </Btn>
           </div>
         </form>

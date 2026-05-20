@@ -31,7 +31,7 @@ class RAGService:
             path=settings.chroma_db_path,
             settings=ChromaSettings(anonymized_telemetry=False),
         )
-        self._embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+        self._embedding_model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
         self._collection = self._client.get_or_create_collection(
             name=settings.rag_collection_name,
             metadata={"hnsw:space": "cosine"},
@@ -42,6 +42,12 @@ class RAGService:
         if hasattr(embeddings, "tolist"):
             return embeddings.tolist()
         return [list(vector) for vector in embeddings]
+
+    def _distance_to_relevance(self, distance: float) -> float:
+        # Chroma cosine distance ranges from 0 (same) to 2 (opposite).
+        # Convert it to a readable 0..1 relevance score for thresholds.
+        relevance = 1 - (float(distance) / 2)
+        return round(max(0.0, min(1.0, relevance)), 4)
 
     def ingest_text(self, text: str, source: str, chunk_size: int = 500, overlap: int = 50):
         if not isinstance(text, str):
@@ -152,7 +158,8 @@ class RAGService:
                 {
                     "text": doc,
                     "source": meta.get("source", "unknown"),
-                    "relevance": round(1 - dist, 4),
+                    "relevance": self._distance_to_relevance(dist),
+                    "distance": round(float(dist), 4),
                 }
             )
         return docs
@@ -163,35 +170,41 @@ class RAGService:
         conversation_history: list[dict],
         system_context: str = "",
         n_context: int = 4,
+        db=None,
+        user_id: str | None = None,
+        session_id: str = "rag-chat",
     ) -> str:
-        import anthropic
-
-        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        context_docs = self.retrieve(user_message, n_results=n_context)
-        context_text = "\n\n".join(
-            f"[Source: {doc['source']} | Relevance: {doc['relevance']}]\n{doc['text']}"
-            for doc in context_docs
-            if doc["relevance"] > 0.3
-        )
-
         system_prompt = f"""Tu es un assistant social media expert.
 {system_context}
-
-{f"Contexte documentaire disponible :{chr(10)}{context_text}" if context_text else ""}
 
 Reponds de maniere concise, professionnelle et adaptee au contexte social media.
 Si le contexte documentaire est pertinent, utilise-le dans ta reponse."""
 
-        messages = [{"role": msg["role"], "content": msg["content"]} for msg in conversation_history[-10:]]
-        messages.append({"role": "user", "content": user_message})
+        if not user_id:
+            raise ValueError("user_id is required for durable RAG memory")
 
-        response = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
-            system=system_prompt,
-            messages=messages,
+        from services.llm_orchestrator import LLMRequest, get_llm_orchestrator
+
+        response = await get_llm_orchestrator().generate_text(
+            LLMRequest(
+                user_message=user_message,
+                system_prompt=system_prompt,
+                user_id=user_id,
+                session_id=session_id,
+                feature="rag_chat",
+                history=[
+                    {"role": msg["role"], "content": msg["content"]}
+                    for msg in conversation_history[-10:]
+                    if msg.get("role") in {"user", "assistant"} and msg.get("content")
+                ],
+                use_rag=True,
+                persist_memory=True,
+                metadata={"n_context": n_context},
+                max_tokens=1024,
+            ),
+            db=db,
         )
-        return response.content[0].text
+        return response.text
 
     def list_sources(self) -> list[str]:
         if self._collection.count() == 0:

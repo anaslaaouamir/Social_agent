@@ -115,10 +115,9 @@ export default function MonitoringPage() {
     comment_monitor: 'Comment Monitor',
     sentiment_worker: 'Sentiment Worker',
     analytics_worker: 'Analytics Worker',
-    alert_consumer: 'Alert Consumer',
+    celery_monitor: 'Celery Monitor',
     elasticsearch: 'Elasticsearch',
     redis: 'Redis',
-    kafka: 'Kafka',
     database: 'Database',
   }
 

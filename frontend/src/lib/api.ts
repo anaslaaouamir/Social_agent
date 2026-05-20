@@ -70,11 +70,6 @@ export const postsApi = {
 
 // Media
 export const mediaApi = {
-  analyze: (file: File) => {
-    const fd = new FormData()
-    fd.append('file', file)
-    return api.post('/api/media/analyze', fd)
-  },
   library: {
     list: () => listMediaLibraryItems(),
     add: (item: MediaItem) => addMediaLibraryItem(item), /*
@@ -87,6 +82,7 @@ export const mediaApi = {
 // Hashtags
 export const hashtagsApi = {
   recommend: (data: any) => api.post('/api/hashtags/recommend', data),
+  generate: (data: any) => api.post('/api/hashtags/generate', data),
   trending: (platform?: string) => api.get('/api/hashtags/trending', { params: { platform } }),
   // Library
   library: {
@@ -132,11 +128,27 @@ export const nlpApi = {
     api.post('/api/nlp/rag/ingest-text', { name, text }),
   ragSources: () => api.get('/api/nlp/rag/sources'),
   ragDeleteSource: (source: string) => api.delete(`/api/nlp/rag/sources/${encodeURIComponent(source)}`),
+  ragAutoReply: (data: {
+    message_id: string
+    content: string
+    platform: string
+    type: 'dm' | 'comment'
+    brand_name?: string
+    language?: string
+    confidence_threshold?: number
+    fallback_templates?: Record<string, string>
+    account_id?: string
+    recipient_id?: string
+    reply_mode?: string
+    reply_target_id?: string
+    reply_parent_id?: string
+  }) => api.post('/api/nlp/rag-autoreply', data),
 }
 
 // DM Chatbot
 export const dmApi = {
   liveInbox: (params?: any) => api.get('/api/dm/live', { params }),
+  analyze: (data: any) => api.post('/api/dm/analyze', data),
   send: (data: {
     account_id: string
     message: string
@@ -174,11 +186,6 @@ export const contentApi = {
 export const alertsApi = {
   list: (params?: any) => api.get('/api/alerts/', { params }),
   acknowledge: (id: string) => api.patch(`/api/alerts/${id}/acknowledge`),
-}
-
-// Timing
-export const timingApi = {
-  predict: (data: any) => api.post('/api/timing/predict', data),
 }
 
 // Types

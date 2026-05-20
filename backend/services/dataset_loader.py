@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import logging
 import re
-import zipfile
 from pathlib import Path
 from typing import Optional
 
@@ -13,6 +12,8 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 DATASET_DIR = Path("./data/datasets")
+QUADRILINGUAL_SENTIMENT_CSV = DATASET_DIR / "sentiment_quadrilingual_3333.csv"
+INSTAGRAM_ANALYTICS_CSV = DATASET_DIR / "Instagram_Analytics.csv"
 
 
 def clean_text(text: str) -> str:
@@ -49,43 +50,79 @@ def extract_text_features(df: pd.DataFrame, text_col: str = "text") -> pd.DataFr
     return df
 
 
-def load_sentiment140(max_rows: int = 200_000) -> pd.DataFrame:
-    """Charge Sentiment140 et remappe les labels en negatif/neutre/positif."""
-    try:
-        from datasets import load_dataset
+def _add_historical_engagement_feature(df: pd.DataFrame) -> pd.DataFrame:
+    """Ajoute une moyenne d'engagement historique sans fuite de la ligne cible."""
+    df = df.copy()
+    er = pd.to_numeric(df["engagement_rate"], errors="coerce").fillna(0.03).clip(0.001, 0.5)
+    df["engagement_rate"] = er
 
-        ds = load_dataset("stanfordnlp/sentiment140", split="train")
-        df = ds.to_pandas().sample(min(max_rows, len(ds)), random_state=42)
-        df = df.rename(columns={"sentiment": "raw_sentiment"})
-    except Exception:
-        zip_path = DATASET_DIR / "sentiment140.zip"
-        if not zip_path.exists():
-            raise FileNotFoundError("Dataset sentiment140 introuvable. Ajoutez sentiment140.zip dans data/datasets/")
+    fallback = float(er.median()) if len(er) else 0.03
+    if "account_id" not in df.columns:
+        df["historical_avg_er"] = fallback
+        return df
 
-        with zipfile.ZipFile(zip_path) as archive:
-            csv_name = next(
-                (name for name in archive.namelist() if name.lower().endswith(".csv")),
-                None,
-            )
-            if not csv_name:
-                raise FileNotFoundError("Aucun CSV trouve dans sentiment140.zip")
-            with archive.open(csv_name) as handle:
-                df = pd.read_csv(
-                    handle,
-                    header=None,
-                    encoding="latin-1",
-                    names=["raw_sentiment", "id", "date", "query", "user", "text"],
-                )
+    sort_cols = []
+    if "post_datetime" in df.columns:
+        df["_post_dt_sort"] = pd.to_datetime(df["post_datetime"], errors="coerce")
+        sort_cols.append("_post_dt_sort")
+    elif "post_date" in df.columns:
+        df["_post_dt_sort"] = pd.to_datetime(df["post_date"], errors="coerce")
+        sort_cols.append("_post_dt_sort")
+    sort_cols.extend(["account_id"])
 
-        if len(df) > max_rows:
-            df = df.sample(n=max_rows, random_state=42)
+    ordered = df.sort_values(sort_cols, kind="mergesort") if sort_cols else df.copy()
+    ordered["_prior_account_er"] = (
+        ordered.groupby("account_id", sort=False)["engagement_rate"]
+        .transform(lambda values: values.expanding().mean().shift(1))
+    )
+    ordered["_prior_global_er"] = ordered["engagement_rate"].expanding().mean().shift(1)
+    ordered["historical_avg_er"] = (
+        ordered["_prior_account_er"]
+        .fillna(ordered["_prior_global_er"])
+        .fillna(fallback)
+        .clip(0.001, 0.5)
+    )
+
+    restored = ordered.sort_index()
+    drop_cols = [col for col in ["_post_dt_sort", "_prior_account_er", "_prior_global_er"] if col in restored.columns]
+    return restored.drop(columns=drop_cols)
+
+
+def load_quadrilingual_sentiment(max_rows: int = 200_000) -> pd.DataFrame:
+    """Charge le CSV local quadrilingue avec les colonnes text/sentiment_label."""
+    if not QUADRILINGUAL_SENTIMENT_CSV.exists():
+        raise FileNotFoundError(
+            f"Dataset quadrilingue introuvable. Ajoutez {QUADRILINGUAL_SENTIMENT_CSV}"
+        )
+
+    df = pd.read_csv(QUADRILINGUAL_SENTIMENT_CSV, nrows=max_rows)
+    required = {"text", "sentiment_label"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(
+            "Dataset quadrilingue invalide. Colonnes manquantes: "
+            + ", ".join(sorted(missing))
+        )
 
     df["text"] = df["text"].astype(str).apply(clean_text)
+    df["sentiment_label"] = df["sentiment_label"].astype(str).str.strip().str.lower()
+    df = df[df["sentiment_label"].isin({"negative", "neutral", "positive"})]
     df = df[df["text"].str.len() > 5].copy()
-    df["sentiment_label"] = df["raw_sentiment"].map({0: "negative", 2: "neutral", 4: "positive"})
-    df = df.dropna(subset=["sentiment_label"])
-    logger.info("Sentiment140: %s lignes | %s", len(df), df["sentiment_label"].value_counts().to_dict())
+
+    if len(df) > max_rows:
+        df = df.sample(n=max_rows, random_state=42)
+
+    logger.info(
+        "Sentiment quadrilingue: %s lignes | %s",
+        len(df),
+        df["sentiment_label"].value_counts().to_dict(),
+    )
     return df[["text", "sentiment_label"]].reset_index(drop=True)
+
+
+def load_sentiment140(max_rows: int = 200_000) -> pd.DataFrame:
+    """Compatibilite: charge uniquement le CSV quadrilingue local."""
+    return load_quadrilingual_sentiment(max_rows=max_rows)
 
 
 def load_toxic_comments(max_rows: int = 100_000) -> pd.DataFrame:
@@ -111,37 +148,62 @@ def load_toxic_comments(max_rows: int = 100_000) -> pd.DataFrame:
 
 
 def load_instagram_dataset() -> Optional[pd.DataFrame]:
-    """Charge le dataset Instagram HF pour les features d'engagement."""
+    """Charge le dataset Instagram local pour les features d'engagement."""
     try:
-        try:
-            from datasets import load_dataset
+        if not INSTAGRAM_ANALYTICS_CSV.exists():
+            raise FileNotFoundError(f"Dataset Instagram introuvable: {INSTAGRAM_ANALYTICS_CSV}")
 
-            ds = load_dataset("vargr/main_instagram", split="train")
-            df = ds.to_pandas()
-        except Exception:
-            parquet_files = sorted((DATASET_DIR / "instagram").glob("**/*.parquet"))
-            if not parquet_files:
-                raise
-            frames = [pd.read_parquet(path) for path in parquet_files]
-            df = pd.concat(frames, ignore_index=True)
-
+        df = pd.read_csv(INSTAGRAM_ANALYTICS_CSV)
         rename_map = {
-            "likesCount": "likes",
-            "commentsCount": "comments_count",
-            "followersCount": "followers",
-            "caption": "text",
-            "type": "content_type",
-            "timestamp": "posted_at",
+            "follower_count": "followers",
+            "media_type": "content_type",
+            "post_hour": "hour",
+            "hashtags_count": "hashtag_count",
+            "caption_length": "caption_length",
+            "performance_bucket_label": "performance_bucket",
         }
         df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
-        if "likes" in df.columns and "followers" in df.columns:
-            df["engagement_rate"] = (
-                (df.get("likes", 0) + df.get("comments_count", 0))
-                / df["followers"].clip(1)
-            ).clip(0, 0.5)
-        if "text" in df.columns:
-            df["text"] = df["text"].fillna("").astype(str).apply(clean_text)
-            df = extract_text_features(df)
+        if "day_of_week" in df.columns:
+            day_map = {
+                "monday": 0,
+                "tuesday": 1,
+                "wednesday": 2,
+                "thursday": 3,
+                "friday": 4,
+                "saturday": 5,
+                "sunday": 6,
+            }
+            df["day_of_week"] = (
+                df["day_of_week"].astype(str).str.strip().str.lower().map(day_map)
+            )
+
+        if "engagement_rate" not in df.columns and {"likes", "comments", "shares", "saves", "followers"}.issubset(df.columns):
+            interactions = df[["likes", "comments", "shares", "saves"]].sum(axis=1)
+            df["engagement_rate"] = (interactions / df["followers"].clip(1)).clip(0, 0.5)
+
+        df["platform"] = "instagram"
+        df["content_type"] = (df["content_type"] if "content_type" in df.columns else "image")
+        if not isinstance(df["content_type"], pd.Series):
+            df["content_type"] = "image"
+        df["content_type"] = df["content_type"].fillna("image").astype(str).str.lower()
+
+        for col, default, min_value, max_value in [
+            ("hour", 12, 0, 23),
+            ("day_of_week", 0, 0, 6),
+            ("followers", 10000, 1, None),
+            ("caption_length", 150, 0, 2200),
+            ("hashtag_count", 0, 0, 30),
+        ]:
+            if col not in df.columns:
+                df[col] = default
+            values = pd.to_numeric(df[col], errors="coerce").fillna(default).astype(int)
+            df[col] = values.clip(lower=min_value, upper=max_value)
+        df["has_emoji"] = 0
+        df["has_mention"] = 0
+        df["has_question"] = 0
+        if "reach" in df.columns:
+            df["reach"] = pd.to_numeric(df["reach"], errors="coerce").fillna(0).astype(int).clip(0)
+        df = _add_historical_engagement_feature(df)
         df["platform"] = "instagram"
         logger.info("Instagram dataset: %s lignes", len(df))
         return df
@@ -175,7 +237,8 @@ def build_engagement_training_df(
     time_bonus = np.where((hour >= 18) & (hour <= 21), 1.2, np.where((hour < 8) | (hour > 23), 0.85, 1.0))
     er_base = np.array([base_er[p] for p in plat])
     er_ct = np.array([ct_mult[c] for c in ct])
-    er_syn = (er_base * er_ct * time_bonus + rng.normal(0, 0.005, synthetic_size)).clip(0.001, 0.5)
+    expected_er = (er_base * er_ct * time_bonus).clip(0.001, 0.5)
+    er_syn = (expected_er + rng.normal(0, 0.005, synthetic_size)).clip(0.001, 0.5)
 
     synth = pd.DataFrame({
         "platform": plat,
@@ -188,7 +251,7 @@ def build_engagement_training_df(
         "has_mention": has_mention,
         "has_question": has_question,
         "followers": followers,
-        "historical_avg_er": er_syn * rng.uniform(0.8, 1.1, synthetic_size),
+        "historical_avg_er": (expected_er * rng.uniform(0.9, 1.1, synthetic_size)).clip(0.001, 0.5),
         "engagement_rate": er_syn,
         "source": "synthetic",
     })
@@ -197,13 +260,13 @@ def build_engagement_training_df(
     if instagram_df is not None and "engagement_rate" in instagram_df.columns:
         ig = instagram_df.copy()
         ig["source"] = "real_instagram"
-        for col in synth.columns:
+        for col in [*synth.columns, "reach", "performance_bucket"]:
             if col not in ig.columns:
-                if synth[col].dtype == object:
+                if col in synth.columns and synth[col].dtype == object:
                     ig[col] = synth[col].mode().iloc[0]
                 else:
-                    ig[col] = float(synth[col].median())
-        frames.append(ig[[c for c in synth.columns if c in ig.columns]])
+                    ig[col] = float(synth[col].median()) if col in synth.columns else None
+        frames.append(ig[[c for c in [*synth.columns, "reach", "performance_bucket"] if c in ig.columns]])
         logger.info("Donnees reelles Instagram ajoutees : %s lignes", len(ig))
 
     df = pd.concat(frames, ignore_index=True)

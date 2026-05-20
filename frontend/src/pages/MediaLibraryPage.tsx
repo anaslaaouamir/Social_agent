@@ -1,89 +1,126 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { downscaleImageFile, fileToDataUrl, mediaApi, type MediaItem } from '../lib/api'
-import { PageHeader, Btn, Modal, Badge, Spinner, Empty } from '../components/ui'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
+import { downscaleImageFile, fileToDataUrl, mediaApi, type MediaItem } from '../lib/api'
+import { Badge, Btn, Empty, Modal, PageHeader, Spinner } from '../components/ui'
 
-const CATEGORIES = ['Tous', 'Produit', 'Lifestyle', 'Promotion', 'Evenement', 'Equipe', 'Temoignage', 'Infographie', 'Autre']
+const ALL_GROUPS = 'Tous'
+const DEFAULT_GROUP = 'General'
+const MEDIA_GROUPS_KEY = 'media_library_groups'
 
-function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2) }
+interface MediaGroup {
+  id: string
+  name: string
+  createdAt: string
+}
 
-// CLIP-style image description via Claude API
-async function describeImageWithClip(dataUrl: string): Promise<string> {
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2)
+}
+
+function readGroups(): MediaGroup[] {
   try {
-    const base64 = dataUrl.split(',')[1]
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: 'image/jpeg', data: base64 }
-            },
-            {
-              type: 'text',
-              text: 'Décris cette image en 2-3 phrases courtes pour une médiathèque de contenu social media. Mentionne: les éléments principaux, l\'ambiance, et les couleurs dominantes. Sois concis et descriptif. Réponds uniquement en français.'
-            }
-          ]
-        }]
-      })
-    })
-    const data = await response.json()
-    return data.content?.[0]?.text || 'Image téléchargée'
+    const parsed = JSON.parse(localStorage.getItem(MEDIA_GROUPS_KEY) || '[]')
+    return Array.isArray(parsed) ? parsed.filter(group => group?.name) : []
   } catch {
-    return 'Image téléchargée'
+    return []
   }
+}
+
+function saveGroups(groups: MediaGroup[]) {
+  localStorage.setItem(MEDIA_GROUPS_KEY, JSON.stringify(groups))
+}
+
+function mergeGroups(groups: MediaGroup[], items: MediaItem[]): MediaGroup[] {
+  const names = new Set(groups.map(group => group.name))
+  const merged = [...groups]
+
+  for (const item of items) {
+    const name = item.category || DEFAULT_GROUP
+    if (!names.has(name)) {
+      names.add(name)
+      merged.push({ id: genId(), name, createdAt: item.createdAt || new Date().toISOString() })
+    }
+  }
+
+  if (merged.length === 0) {
+    merged.push({ id: genId(), name: DEFAULT_GROUP, createdAt: new Date().toISOString() })
+  }
+
+  return merged
 }
 
 export default function MediaLibraryPage() {
   const [items, setItems] = useState<MediaItem[]>([])
-  const [category, setCategory] = useState('Tous')
+  const [groups, setGroups] = useState<MediaGroup[]>(() => readGroups())
+  const [activeGroup, setActiveGroup] = useState(ALL_GROUPS)
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [uploading, setUploading] = useState(false)
   const [selected, setSelected] = useState<MediaItem | null>(null)
   const [uploadModal, setUploadModal] = useState(false)
+  const [groupModal, setGroupModal] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
   const [dragOver, setDragOver] = useState(false)
-  const [uploadForm, setUploadForm] = useState({ category: 'Produit', tags: '' })
+  const [uploadForm, setUploadForm] = useState({ group: DEFAULT_GROUP, tags: '' })
   const fileRef = useRef<HTMLInputElement>(null)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [describing, setDescribing] = useState(false)
-  const [clipDescription, setClipDescription] = useState('')
 
   const reload = useCallback(async () => {
-    setItems(await mediaApi.library.list())
+    const loaded = await mediaApi.library.list()
+    setItems(loaded)
+    setGroups(current => {
+      const merged = mergeGroups(current, loaded)
+      saveGroups(merged)
+      return merged
+    })
   }, [])
 
   useEffect(() => {
     reload().catch(() => {
-      toast.error('Impossible de charger la médiathèque')
+      toast.error('Impossible de charger la mediatheque')
     })
   }, [reload])
 
-  const openUpload = async (file: File) => {
-    const url = URL.createObjectURL(file)
+  const groupCounts = groups.reduce<Record<string, number>>((acc, group) => {
+    acc[group.name] = items.filter(item => (item.category || DEFAULT_GROUP) === group.name).length
+    return acc
+  }, {})
+
+  const selectedUploadGroup = activeGroup === ALL_GROUPS
+    ? groups[0]?.name || DEFAULT_GROUP
+    : activeGroup
+
+  const openUpload = (file: File) => {
+    setUploadForm(form => ({ ...form, group: selectedUploadGroup }))
     setPendingFile(file)
-    setPreviewUrl(url)
-    setClipDescription('')
+    setPreviewUrl(URL.createObjectURL(file))
     setUploadModal(true)
-    // Auto-describe with CLIP-style
-    if (file.type.startsWith('image/')) {
-      setDescribing(true)
-      try {
-        const dataUrl = await fileToDataUrl(file)
-        const desc = await describeImageWithClip(dataUrl)
-        setClipDescription(desc)
-      } catch {
-        setClipDescription('Description non disponible')
-      } finally {
-        setDescribing(false)
-      }
+  }
+
+  const closeUpload = () => {
+    setUploadModal(false)
+    setPendingFile(null)
+    setPreviewUrl(null)
+  }
+
+  const handleCreateGroup = (e: React.FormEvent) => {
+    e.preventDefault()
+    const name = newGroupName.trim()
+    if (!name) return
+    if (groups.some(group => group.name.toLowerCase() === name.toLowerCase())) {
+      toast.error('Ce groupe existe deja')
+      return
     }
+
+    const next = [{ id: genId(), name, createdAt: new Date().toISOString() }, ...groups]
+    setGroups(next)
+    saveGroups(next)
+    setActiveGroup(name)
+    setUploadForm(form => ({ ...form, group: name }))
+    setNewGroupName('')
+    setGroupModal(false)
+    toast.success('Groupe cree')
   }
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -91,7 +128,7 @@ export default function MediaLibraryPage() {
     setDragOver(false)
     const file = e.dataTransfer.files[0]
     if (file) openUpload(file)
-  }, [])
+  }, [selectedUploadGroup])
 
   const handleUpload = async () => {
     if (!pendingFile) return
@@ -100,6 +137,7 @@ export default function MediaLibraryPage() {
       const persistentUrl = pendingFile.type.startsWith('image/')
         ? await downscaleImageFile(pendingFile)
         : await fileToDataUrl(pendingFile)
+      const group = uploadForm.group || DEFAULT_GROUP
       const item: MediaItem = {
         id: genId(),
         name: pendingFile.name,
@@ -108,99 +146,118 @@ export default function MediaLibraryPage() {
         mimeType: pendingFile.type,
         size: pendingFile.size,
         tags: uploadForm.tags.split(',').map(t => t.trim()).filter(Boolean),
-        category: uploadForm.category,
+        category: group,
         createdAt: new Date().toISOString(),
-        analysis: clipDescription ? { description: clipDescription } : null,
       }
       await mediaApi.library.add(item)
+      if (!groups.some(existing => existing.name === group)) {
+        const next = [{ id: genId(), name: group, createdAt: new Date().toISOString() }, ...groups]
+        setGroups(next)
+        saveGroups(next)
+      }
       await reload()
-      setUploadModal(false)
-      setPendingFile(null)
-      setPreviewUrl(null)
-      setClipDescription('')
-      toast.success('Média ajouté à la bibliothèque')
+      setActiveGroup(group)
+      closeUpload()
+      toast.success('Media ajoute a la bibliotheque')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'upload')
+      toast.error(error instanceof Error ? error.message : "Erreur lors de l'upload")
     } finally {
       setUploading(false)
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer ce média ?')) return
+    if (!confirm('Supprimer ce media ?')) return
     await mediaApi.library.delete(id)
     await reload()
     if (selected?.id === id) setSelected(null)
-    toast.success('Média supprimé')
+    toast.success('Media supprime')
   }
 
-  const filtered = items.filter(i => {
-    const catMatch = category === 'Tous' || i.category === category
-    const searchMatch = !search || i.name.toLowerCase().includes(search.toLowerCase()) ||
-      i.tags.some(t => t.toLowerCase().includes(search.toLowerCase())) ||
-      (i.analysis?.description || '').toLowerCase().includes(search.toLowerCase())
-    return catMatch && searchMatch
+  const filtered = items.filter(item => {
+    const q = search.toLowerCase()
+    const itemGroup = item.category || DEFAULT_GROUP
+    const groupMatch = activeGroup === ALL_GROUPS || itemGroup === activeGroup
+    const searchMatch = !q ||
+      item.name.toLowerCase().includes(q) ||
+      item.tags.some(tag => tag.toLowerCase().includes(q))
+    return groupMatch && searchMatch
   })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <div style={{ flexShrink: 0 }}>
         <PageHeader
-          title="Médiathèque"
-          subtitle={`${items.length} médias · descriptions auto par IA (CLIP)`}
+          title="Mediatheque"
+          subtitle={`${items.length} medias dans ${groups.length} groupe(s)`}
           actions={
             <div style={{ display: 'flex', gap: 8 }}>
               <Btn variant="ghost" size="sm" onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}>
-                {viewMode === 'grid' ? '☰' : '⊞'}
+                {viewMode === 'grid' ? 'Liste' : 'Grille'}
               </Btn>
-              <Btn onClick={() => fileRef.current?.click()}>+ Ajouter un média</Btn>
+              <Btn variant="outline" onClick={() => setGroupModal(true)}>+ Nouveau groupe</Btn>
+              <Btn onClick={() => fileRef.current?.click()}>+ Ajouter un media</Btn>
             </div>
           }
         />
       </div>
 
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '0 32px 24px' }}>
-        {/* Filters */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
           <input
-            value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Rechercher par nom, tag ou description..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher par nom ou tag..."
             style={{ flex: 1, minWidth: 200, maxWidth: 320 }}
           />
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            {CATEGORIES.map(cat => (
-              <button key={cat} onClick={() => setCategory(cat)} style={{
-                padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500, cursor: 'pointer',
-                background: category === cat ? 'rgba(108,99,255,0.15)' : 'transparent',
-                border: `1px solid ${category === cat ? 'rgba(108,99,255,0.3)' : 'var(--border)'}`,
-                color: category === cat ? 'var(--accent-2)' : 'var(--text-3)',
-              }}>{cat}</button>
+            {[{ id: ALL_GROUPS, name: ALL_GROUPS, createdAt: '' }, ...groups].map(group => (
+              <button
+                key={group.id}
+                onClick={() => setActiveGroup(group.name)}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: 6,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  background: activeGroup === group.name ? 'rgba(108,99,255,0.15)' : 'transparent',
+                  border: `1px solid ${activeGroup === group.name ? 'rgba(108,99,255,0.3)' : 'var(--border)'}`,
+                  color: activeGroup === group.name ? 'var(--accent-2)' : 'var(--text-3)',
+                }}
+              >
+                {group.name}
+                {group.name !== ALL_GROUPS ? ` (${groupCounts[group.name] || 0})` : ` (${items.length})`}
+              </button>
             ))}
           </div>
         </div>
 
-        {/* Drop zone */}
         <div
           onDragOver={e => { e.preventDefault(); setDragOver(true) }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
+          onClick={() => fileRef.current?.click()}
           style={{
-            marginBottom: 16, padding: '20px', borderRadius: 10, flexShrink: 0,
+            marginBottom: 16,
+            padding: 20,
+            borderRadius: 10,
+            flexShrink: 0,
             border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
             background: dragOver ? 'rgba(108,99,255,0.05)' : 'transparent',
-            textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
+            textAlign: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
           }}
-          onClick={() => fileRef.current?.click()}
         >
           <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
-            📎 Glissez un fichier ici ou cliquez pour sélectionner · Image, Vidéo, GIF
+            Glissez un fichier ici ou cliquez pour selectionner. Il sera ajoute au groupe "{selectedUploadGroup}".
           </span>
         </div>
 
-        {/* Grid */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {filtered.length === 0 ? (
-            <Empty icon="🖼️" title="Aucun média" desc="Ajoutez vos premiers médias pour commencer." />
+            <Empty icon="" title="Aucun media" desc="Ajoutez vos premiers medias dans le groupe choisi." />
           ) : viewMode === 'grid' ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
               {filtered.map(item => (
@@ -208,7 +265,9 @@ export default function MediaLibraryPage() {
                   key={item.id}
                   onClick={() => setSelected(selected?.id === item.id ? null : item)}
                   style={{
-                    borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
+                    borderRadius: 10,
+                    overflow: 'hidden',
+                    cursor: 'pointer',
                     border: `1px solid ${selected?.id === item.id ? 'var(--accent)' : 'var(--border)'}`,
                     background: 'var(--bg-1)',
                     transition: 'all 0.15s',
@@ -218,19 +277,14 @@ export default function MediaLibraryPage() {
                     {item.type === 'image' ? (
                       <img src={item.url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 32 }}>🎬</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 14 }}>Video</div>
                     )}
                   </div>
                   <div style={{ padding: '8px 10px' }}>
                     <div style={{ fontSize: 11, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
                       {item.name}
                     </div>
-                    {item.analysis?.description && (
-                      <div style={{ fontSize: 10, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {item.analysis.description}
-                      </div>
-                    )}
-                    <div style={{ fontSize: 10, color: 'var(--accent-2)', marginTop: 2 }}>{item.category}</div>
+                    <div style={{ fontSize: 10, color: 'var(--accent-2)', marginTop: 2 }}>{item.category || DEFAULT_GROUP}</div>
                   </div>
                 </div>
               ))}
@@ -242,8 +296,12 @@ export default function MediaLibraryPage() {
                   key={item.id}
                   onClick={() => setSelected(selected?.id === item.id ? null : item)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
-                    borderRadius: 10, cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '10px 14px',
+                    borderRadius: 10,
+                    cursor: 'pointer',
                     background: selected?.id === item.id ? 'rgba(108,99,255,0.08)' : 'var(--bg-1)',
                     border: `1px solid ${selected?.id === item.id ? 'rgba(108,99,255,0.25)' : 'var(--border)'}`,
                   }}
@@ -251,19 +309,17 @@ export default function MediaLibraryPage() {
                   <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-2)' }}>
                     {item.type === 'image' ? (
                       <img src={item.url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>🎬</div>}
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 10 }}>Video</div>
+                    )}
                   </div>
                   <div style={{ flex: 1, overflow: 'hidden' }}>
                     <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{item.name}</div>
-                    {item.analysis?.description && (
-                      <div style={{ fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {item.analysis.description}
-                      </div>
-                    )}
+                    <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{item.tags.map(tag => `#${tag}`).join(' ')}</div>
                   </div>
-                  <Badge label={item.category} />
+                  <Badge label={item.category || DEFAULT_GROUP} />
                   <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{(item.size / 1024).toFixed(0)} Ko</div>
-                  <Btn size="sm" variant="danger" onClick={e => { e.stopPropagation(); handleDelete(item.id) }}>×</Btn>
+                  <Btn size="sm" variant="danger" onClick={e => { e.stopPropagation(); handleDelete(item.id) }}>x</Btn>
                 </div>
               ))}
             </div>
@@ -271,49 +327,63 @@ export default function MediaLibraryPage() {
         </div>
       </div>
 
-      {/* Detail panel */}
       {selected && (
-        <div style={{
-          position: 'fixed', right: 0, top: 0, bottom: 0, width: 320,
-          background: 'var(--bg-1)', borderLeft: '1px solid var(--border)',
-          display: 'flex', flexDirection: 'column', zIndex: 50, overflowY: 'auto',
-        }}>
-          <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 600, fontSize: 14 }}>Détails</span>
-            <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: 'var(--text-3)', fontSize: 18, cursor: 'pointer' }}>×</button>
+        <div
+          style={{
+            position: 'fixed',
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: 320,
+            background: 'var(--bg-1)',
+            borderLeft: '1px solid var(--border)',
+            display: 'flex',
+            flexDirection: 'column',
+            zIndex: 50,
+            overflowY: 'auto',
+          }}
+        >
+          <div style={{ padding: 16, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 600, fontSize: 14 }}>Details</span>
+            <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: 'var(--text-3)', fontSize: 18, cursor: 'pointer' }}>x</button>
           </div>
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ borderRadius: 10, overflow: 'hidden', aspectRatio: '1', background: 'var(--bg-2)' }}>
               {selected.type === 'image' ? (
                 <img src={selected.url} alt={selected.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 40 }}>🎬</div>}
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 14 }}>Video</div>
+              )}
             </div>
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{selected.name}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{selected.category} · {(selected.size / 1024).toFixed(0)} Ko</div>
-            </div>
-            {selected.analysis?.description && (
-              <div style={{ padding: '10px 12px', background: 'rgba(108,99,255,0.06)', borderRadius: 8, border: '1px solid rgba(108,99,255,0.12)' }}>
-                <div style={{ fontSize: 10, color: 'var(--accent-2)', marginBottom: 5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-                  🤖 Description IA (CLIP)
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>{selected.analysis.description}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                Groupe: {selected.category || DEFAULT_GROUP} - {(selected.size / 1024).toFixed(0)} Ko
               </div>
-            )}
+            </div>
             {selected.tags.length > 0 && (
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {selected.tags.map(t => <Badge key={t} label={`#${t}`} />)}
+                {selected.tags.map(tag => <Badge key={tag} label={`#${tag}`} />)}
               </div>
             )}
-            <Btn variant="danger" onClick={() => handleDelete(selected.id)}>🗑 Supprimer</Btn>
+            <Btn variant="danger" onClick={() => handleDelete(selected.id)}>Supprimer</Btn>
           </div>
         </div>
       )}
 
-      <input ref={fileRef} type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) openUpload(f); e.target.value = '' }} />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*,video/*"
+        style={{ display: 'none' }}
+        onChange={e => {
+          const file = e.target.files?.[0]
+          if (file) openUpload(file)
+          e.target.value = ''
+        }}
+      />
 
-      {/* Upload modal */}
-      <Modal open={uploadModal} onClose={() => { setUploadModal(false); setPendingFile(null); setPreviewUrl(null); setClipDescription('') }} title="Ajouter un média" width={480}>
+      <Modal open={uploadModal} onClose={closeUpload} title="Ajouter un media" width={480}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {previewUrl && (
             <div style={{ borderRadius: 10, overflow: 'hidden', maxHeight: 220, background: 'var(--bg-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -324,33 +394,41 @@ export default function MediaLibraryPage() {
               )}
             </div>
           )}
-          {/* CLIP description */}
-          <div style={{ padding: '10px 12px', background: 'rgba(108,99,255,0.06)', borderRadius: 8, border: '1px solid rgba(108,99,255,0.12)', minHeight: 56 }}>
-            <div style={{ fontSize: 10, color: 'var(--accent-2)', marginBottom: 5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-              🤖 Description IA automatique (CLIP)
-              {describing && <Spinner />}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>
-              {describing ? 'Analyse en cours...' : clipDescription || 'Description générée après l\'upload'}
-            </div>
-          </div>
           <div>
-            <label style={{ display: 'block', fontSize: 12, color: 'var(--text-2)', marginBottom: 6 }}>Catégorie</label>
-            <select value={uploadForm.category} onChange={e => setUploadForm(f => ({ ...f, category: e.target.value }))}>
-              {CATEGORIES.slice(1).map(c => <option key={c} value={c}>{c}</option>)}
+            <label style={{ display: 'block', fontSize: 12, color: 'var(--text-2)', marginBottom: 6 }}>Groupe</label>
+            <select value={uploadForm.group} onChange={e => setUploadForm(form => ({ ...form, group: e.target.value }))}>
+              {groups.map(group => <option key={group.id} value={group.name}>{group.name}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 12, color: 'var(--text-2)', marginBottom: 6 }}>Tags (séparés par virgule)</label>
-            <input value={uploadForm.tags} onChange={e => setUploadForm(f => ({ ...f, tags: e.target.value }))} placeholder="ex: été, promo, produit" />
+            <label style={{ display: 'block', fontSize: 12, color: 'var(--text-2)', marginBottom: 6 }}>Tags separes par virgule</label>
+            <input value={uploadForm.tags} onChange={e => setUploadForm(form => ({ ...form, tags: e.target.value }))} placeholder="ex: ete, promo, produit" />
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <Btn variant="ghost" onClick={() => { setUploadModal(false); setPendingFile(null); setPreviewUrl(null) }}>Annuler</Btn>
-            <Btn onClick={handleUpload} disabled={uploading || describing}>
-              {uploading ? <Spinner /> : '📁 Ajouter à la bibliothèque'}
+            <Btn variant="ghost" onClick={closeUpload}>Annuler</Btn>
+            <Btn onClick={handleUpload} disabled={uploading}>
+              {uploading ? <Spinner /> : 'Ajouter a la bibliotheque'}
             </Btn>
           </div>
         </div>
+      </Modal>
+
+      <Modal open={groupModal} onClose={() => setGroupModal(false)} title="Nouveau groupe media" width={380}>
+        <form onSubmit={handleCreateGroup} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, color: 'var(--text-2)', marginBottom: 6 }}>Nom du groupe</label>
+            <input
+              value={newGroupName}
+              onChange={e => setNewGroupName(e.target.value)}
+              placeholder="ex: Campagne ete, Produits, Stories..."
+              required
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <Btn variant="ghost" onClick={() => setGroupModal(false)}>Annuler</Btn>
+            <Btn type="submit">Creer</Btn>
+          </div>
+        </form>
       </Modal>
     </div>
   )

@@ -174,7 +174,6 @@ social-agent/
 ### Médiathèque
 - Drive d'images organisé par catégorie (Produit, Lifestyle, Promo…)
 - Glisser-déposer pour upload
-- Analyse IA automatique (qualité, tags, catégorie)
 - Sélection directe depuis le compositeur de post
 
 ### Bibliothèque de Hashtags
@@ -284,6 +283,6 @@ Notes :
 ## 📦 Stack technique
 
 **Backend** : FastAPI · SQLAlchemy Async · Celery · Redis · PostgreSQL · Elasticsearch · Alembic  
-**IA/ML** : Claude Sonnet · BERT Multilingual · XGBoost · Prophet · YOLOv8 · CLIP  
+**IA/ML** : Claude Sonnet · BERT Multilingual · XGBoost · Prophet  
 **Frontend** : React 18 · TypeScript · Tailwind CSS · Recharts · Zustand · React Router  
 **Infra** : Docker Compose · Nginx · S3-compatible · Flower · ngrok
