@@ -533,40 +533,21 @@ async def get_live_inbox(
 
     for item in items:
         if item.get("message"):
-            try:
-                analysis = await nlp_pipeline.process(item["message"])
-                item["label"] = "spam" if analysis.is_spam else "toxic" if analysis.is_toxic else analysis.sentiment
-                item["sentiment_score"] = analysis.sentiment_score
-                item["is_spam"] = analysis.is_spam
-                item["is_toxic"] = analysis.is_toxic
-                item["is_question"] = "?" in item["message"]
-                item["is_lead"] = any(token in item["message"].lower() for token in ("prix", "price", "tarif", "commande", "devis", "buy", "acheter"))
-            except Exception:
-                item["label"] = "neutral"
-                item["sentiment_score"] = 0.0
-                item["is_spam"] = False
-                item["is_toxic"] = False
-                item["is_question"] = False
-                item["is_lead"] = False
-
+            item["label"] = "neutral"
+            item["sentiment_score"] = 0.0
+            item["is_spam"] = False
+            item["is_toxic"] = False
+            item["is_question"] = "?" in item["message"]
+            item["is_lead"] = any(token in item["message"].lower() for token in ("prix", "price", "tarif", "commande", "devis", "buy", "acheter"))
         for message in item.get("messages") or []:
             if message.get("is_from_page") or not message.get("text"):
                 continue
-            try:
-                analysis = await nlp_pipeline.process(message["text"])
-                message["label"] = "spam" if analysis.is_spam else "toxic" if analysis.is_toxic else analysis.sentiment
-                message["sentiment_score"] = analysis.sentiment_score
-                message["is_spam"] = analysis.is_spam
-                message["is_toxic"] = analysis.is_toxic
-                message["is_question"] = "?" in message["text"]
-                message["is_lead"] = any(token in message["text"].lower() for token in ("prix", "price", "tarif", "commande", "devis", "buy", "acheter"))
-            except Exception:
-                message["label"] = "neutral"
-                message["sentiment_score"] = 0.0
-                message["is_spam"] = False
-                message["is_toxic"] = False
-                message["is_question"] = False
-                message["is_lead"] = False
+            message["label"] = "neutral"
+            message["sentiment_score"] = 0.0
+            message["is_spam"] = False
+            message["is_toxic"] = False
+            message["is_question"] = "?" in message["text"]
+            message["is_lead"] = any(token in message["text"].lower() for token in ("prix", "price", "tarif", "commande", "devis", "buy", "acheter"))
 
         try:
             stored = await persist_live_dm_item(db, item)

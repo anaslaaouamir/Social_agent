@@ -7,6 +7,9 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
+import asyncio
+import threading
+
 
 logger = logging.getLogger(__name__)
 
@@ -58,78 +61,90 @@ class NLPPipeline:
     def __init__(self):
         self._sentiment_model = None
         self._toxic_model = None
+        self._topic_model = None
+
+
+        self._sentiment_lock = threading.Lock()
+        self._toxic_lock = threading.Lock()
+        self._topic_lock = threading.Lock()
+
         self._toxic_model_failed = False
         self._toxic_error_logged = False
         self._spam_keywords = self._load_spam_keywords()
         self._toxic_keywords = self._load_toxic_keywords()
-        self._topic_model = None
         self._topic_fitted = False
 
     def _get_sentiment_model(self):
         if self._sentiment_model is None:
-            from transformers import pipeline as hf_pipeline
+            with self._sentiment_lock: # <--- ADD LOCK
+                if self._sentiment_model is None: # <--- DOUBLE CHECK
+                    from transformers import pipeline as hf_pipeline
 
-            model_name = _resolve_model_path(
-                SENTIMENT_MODEL_DIR,
-                "nlptown/bert-base-multilingual-uncased-sentiment",
-            )
-            self._sentiment_model = hf_pipeline(
-                "text-classification",
-                model=model_name,
-                top_k=None,
-                truncation=True,
-                max_length=512,
-            )
+                    model_name = _resolve_model_path(
+                        SENTIMENT_MODEL_DIR,
+                        "nlptown/bert-base-multilingual-uncased-sentiment",
+                    )
+                    self._sentiment_model = hf_pipeline(
+                        "text-classification",
+                        model=model_name,
+                        top_k=None,
+                        truncation=True,
+                        max_length=512,
+                    )
         return self._sentiment_model
 
     def _get_toxic_model(self):
         if self._toxic_model is None and not self._toxic_model_failed:
-            try:
-                from transformers import (
-                    AutoModelForSequenceClassification,
-                    AutoTokenizer,
-                    pipeline as hf_pipeline,
-                )
+            with self._toxic_lock : # <--- ADD LOCK
+                if self._toxic_model  is None: # <--- DOUBLE CHECK
+                    try:
+                        from transformers import (
+                            AutoModelForSequenceClassification,
+                            AutoTokenizer,
+                            pipeline as hf_pipeline,
+                        )
 
-                model_name = _resolve_model_path(
-                    TOXIC_MODEL_DIR,
-                    "unitary/multilingual-toxic-xlm-roberta",
-                )
-                tokenizer = AutoTokenizer.from_pretrained(
-                    model_name,
-                    use_fast=False,
-                )
-                model = AutoModelForSequenceClassification.from_pretrained(
-                    model_name
-                )
-                self._toxic_model = hf_pipeline(
-                    "text-classification",
-                    model=model,
-                    tokenizer=tokenizer,
-                    top_k=None,
-                    truncation=True,
-                    max_length=512,
-                )
-            except Exception as exc:
-                self._toxic_model_failed = True
-                if not self._toxic_error_logged:
-                    logger.warning("Toxic model unavailable, using heuristic fallback: %s", exc)
-                    self._toxic_error_logged = True
+                        model_name = _resolve_model_path(
+                            TOXIC_MODEL_DIR,
+                            "unitary/multilingual-toxic-xlm-roberta",
+                        )
+                        tokenizer = AutoTokenizer.from_pretrained(
+                            model_name,
+                            use_fast=False,
+                        )
+                        model = AutoModelForSequenceClassification.from_pretrained(
+                            model_name
+                        )
+                        self._toxic_model = hf_pipeline(
+                            "text-classification",
+                            model=model,
+                            tokenizer=tokenizer,
+                            top_k=None,
+                            truncation=True,
+                            max_length=512,
+                        )
+                    except Exception as exc:
+                        self._toxic_model_failed = True
+                        if not self._toxic_error_logged:
+                            logger.warning("Toxic model unavailable, using heuristic fallback: %s", exc)
+                            self._toxic_error_logged = True
         return self._toxic_model
 
     def _get_bertopic_model(self):
         if self._topic_model is None:
-            from bertopic import BERTopic
-            from sentence_transformers import SentenceTransformer
+            with self._topic_lock: # <--- ADD LOCK
+                if self._topic_model is None: # <--- DOUBLE CHECK
+                    from bertopic import BERTopic
+                    from sentence_transformers import SentenceTransformer
 
-            embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-            self._topic_model = BERTopic(
-                embedding_model=embedding_model,
-                language="multilingual",
-                calculate_probabilities=True,
-                verbose=False,
-                min_topic_size=5,
-            )
+                    embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+                    self._topic_model = BERTopic(
+                        embedding_model=embedding_model,
+                        language="multilingual",
+                        calculate_probabilities=True,
+                        verbose=False,
+                        min_topic_size=5,
+                    )
         return self._topic_model
 
     def _load_spam_keywords(self) -> set[str]:
@@ -387,11 +402,11 @@ class NLPPipeline:
                 language="unknown",
             )
 
-        is_spam, spam_score = self.detect_spam(text)
-        is_toxic, toxic_score = self.detect_toxic(text)
-        sentiment, sentiment_score = self.analyze_sentiment(text)
-        topic_id, topic_label, topic_keywords = self.get_topic(text)
-        language = self.detect_language(text)
+        is_spam, spam_score = await asyncio.to_thread(self.detect_spam, text)
+        is_toxic, toxic_score = await asyncio.to_thread(self.detect_toxic, text)
+        sentiment, sentiment_score = await asyncio.to_thread(self.analyze_sentiment, text)
+        topic_id, topic_label, topic_keywords = await asyncio.to_thread(self.get_topic, text)
+        language = await asyncio.to_thread(self.detect_language, text)
 
         return NLPResult(
             text=text,

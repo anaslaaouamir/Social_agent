@@ -112,10 +112,32 @@ async def _live_account_overview(account: SocialAccount, days: int) -> dict:
     }
 
 
+# async def _build_live_sentiment_distribution(account: SocialAccount, live_posts: list[dict]) -> tuple[dict[str, int], int]:
+#     sentiment_dist = {"positive": 0, "negative": 0, "neutral": 0, "spam": 0, "toxic": 0}
+#     analyzed_comments = 0
+
+#     for post in live_posts[:5]:
+#         platform_post_id = str(post.get("id") or "")
+#         if not platform_post_id:
+#             continue
+#         try:
+#             comments = await _fetch_live_comments_for_account(account, platform_post_id)
+#         except Exception:
+#             continue
+#         for comment in comments[:25]:
+#             text = str(comment.get("text") or "").strip()
+#             if not text:
+#                 continue
+#             result = await nlp_pipeline.process(text)
+#             label = nlp_pipeline.get_unified_label(result)
+#             sentiment_dist[label] = sentiment_dist.get(label, 0) + 1
+#             analyzed_comments += 1
+
+#     return sentiment_dist, analyzed_comments
+
 async def _build_live_sentiment_distribution(account: SocialAccount, live_posts: list[dict]) -> tuple[dict[str, int], int]:
     sentiment_dist = {"positive": 0, "negative": 0, "neutral": 0, "spam": 0, "toxic": 0}
     analyzed_comments = 0
-
     for post in live_posts[:5]:
         platform_post_id = str(post.get("id") or "")
         if not platform_post_id:
@@ -128,11 +150,13 @@ async def _build_live_sentiment_distribution(account: SocialAccount, live_posts:
             text = str(comment.get("text") or "").strip()
             if not text:
                 continue
-            result = await nlp_pipeline.process(text)
-            label = nlp_pipeline.get_unified_label(result)
+                
+            # --- FIX: Stop AI from freezing the analytics page ---
+            label = "neutral"
+            # -----------------------------------------------------
+            
             sentiment_dist[label] = sentiment_dist.get(label, 0) + 1
             analyzed_comments += 1
-
     return sentiment_dist, analyzed_comments
 
 

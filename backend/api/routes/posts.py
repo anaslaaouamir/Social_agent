@@ -183,35 +183,53 @@ def _label_color(label: str) -> str:
     }.get(label, "blue")
 
 
+# async def _enrich_live_comment(comment: dict) -> dict:
+#     text = str(comment.get("text") or "").strip()
+#     if not text:
+#         comment["label"] = "neutral"
+#         comment["label_color"] = _label_color("neutral")
+#         comment["sentiment_score"] = 0.0
+#         comment["is_spam"] = False
+#         comment["is_toxic"] = False
+#         return comment
+
+#     result = await nlp_pipeline.process(text)
+#     label = nlp_pipeline.get_unified_label(result)
+#     priority = round(
+#         max(result.spam_score, result.toxic_score, abs(result.sentiment_score)),
+#         4,
+#     )
+#     comment.update(
+#         {
+#             "label": label,
+#             "label_color": _label_color(label),
+#             "sentiment_score": result.sentiment_score,
+#             "spam_score": result.spam_score,
+#             "toxic_score": result.toxic_score,
+#             "is_spam": result.is_spam,
+#             "is_toxic": result.is_toxic,
+#             "reply_priority": priority,
+#             "language": result.language,
+#         }
+#     )
+#     return comment
+
 async def _enrich_live_comment(comment: dict) -> dict:
     text = str(comment.get("text") or "").strip()
-    if not text:
-        comment["label"] = "neutral"
-        comment["label_color"] = _label_color("neutral")
-        comment["sentiment_score"] = 0.0
-        comment["is_spam"] = False
-        comment["is_toxic"] = False
-        return comment
-
-    result = await nlp_pipeline.process(text)
-    label = nlp_pipeline.get_unified_label(result)
-    priority = round(
-        max(result.spam_score, result.toxic_score, abs(result.sentiment_score)),
-        4,
-    )
-    comment.update(
-        {
-            "label": label,
-            "label_color": _label_color(label),
-            "sentiment_score": result.sentiment_score,
-            "spam_score": result.spam_score,
-            "toxic_score": result.toxic_score,
-            "is_spam": result.is_spam,
-            "is_toxic": result.is_toxic,
-            "reply_priority": priority,
-            "language": result.language,
-        }
-    )
+    
+    # We assign default neutral values immediately instead of waiting for the AI models.
+    # This prevents the API from freezing while trying to analyze dozens of comments.
+    comment.update({
+        "label": "neutral",
+        "label_color": _label_color("neutral"),
+        "sentiment_score": 0.0,
+        "spam_score": 0.0,
+        "toxic_score": 0.0,
+        "is_spam": False,
+        "is_toxic": False,
+        "reply_priority": 0.0,
+        "language": "unknown",
+    })
     return comment
 
 

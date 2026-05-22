@@ -13,7 +13,7 @@ function logInboxError(message: unknown, options?: unknown) {
 type SentimentType = 'positive' | 'negative' | 'neutral' | 'spam' | 'toxic' | 'female' | 'human'
 type InboxTab = 'messages' | 'posts'
 
-const INBOX_REFRESH_MS = 8000
+const INBOX_REFRESH_MS = 45000
 const POSTS_REFRESH_MS = 45000
 
 interface DM {
