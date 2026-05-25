@@ -237,25 +237,36 @@ def _enrich_live_post(account: SocialAccount, post: dict) -> dict:
     published_at = post.get("published_at")
     dt = __import__("datetime").datetime.fromtimestamp(published_at) if published_at else __import__("datetime").datetime.utcnow()
     features = _text_feature_flags(str(post.get("text") or ""))
-    prediction = engagement_predictor.predict(
-        platform=account.platform.value,
-        content_type=_infer_content_type(post.get("media_type")),
-        hour=dt.hour,
-        day_of_week=dt.weekday(),
-        caption_length=int(features["caption_length"]),
-        hashtag_count=int(features["hashtag_count"]),
-        has_emoji=bool(features["has_emoji"]),
-        has_mention=bool(features["has_mention"]),
-        has_question=bool(features["has_question"]),
-        followers=account.followers_count or 10000,
-        historical_avg_er=float((account.metadata_ or {}).get("avg_er", 0.03)),
-    )
-    post.update(
-        {
-            "predicted_engagement_rate": prediction.predicted_engagement_rate,
-            "predicted_engagement_percent": round(prediction.predicted_engagement_rate * 100, 2),
-        }
-    )
+    try:
+        prediction = engagement_predictor.predict(
+            platform=account.platform.value,
+            content_type=_infer_content_type(post.get("media_type")),
+            hour=dt.hour,
+            day_of_week=dt.weekday(),
+            caption_length=int(features["caption_length"]),
+            hashtag_count=int(features["hashtag_count"]),
+            has_emoji=bool(features["has_emoji"]),
+            has_mention=bool(features["has_mention"]),
+            has_question=bool(features["has_question"]),
+            followers=account.followers_count or 10000,
+            historical_avg_er=float((account.metadata_ or {}).get("avg_er", 0.03)),
+        )
+        post.update(
+            {
+                "predicted_engagement_rate": prediction.predicted_engagement_rate,
+                "predicted_engagement_percent": round(prediction.predicted_engagement_rate * 100, 2),
+            }
+        )
+    except Exception as exc:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "Engagement prediction failed for post %s on %s: %s",
+            post.get("id"), account.platform.value, exc,
+        )
+        post.update({
+            "predicted_engagement_rate": 0.03,
+            "predicted_engagement_percent": 3.0,
+        })
     return post
 
 

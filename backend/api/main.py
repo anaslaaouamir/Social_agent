@@ -23,6 +23,8 @@ from api.routes import (
     instagram_oauth, twitter_oauth, tiktok_oauth, threads_oauth, youtube_oauth, meta_webhooks,
 )
 
+from core.runtime_state import mark_runtime, runtime_state
+
 settings = get_settings()
 
 
@@ -140,6 +142,19 @@ async def health_check():
         "version": "1.0.0",
         "timestamp": time.time(),
         "environment": settings.environment,
+    }
+
+@app.get("/api/ready", tags=["Health"])
+async def readiness_check():
+    """Shows whether AI models have finished loading. Poll this after startup."""
+    from services.ml_engagement import engagement_predictor
+    from services.nlp_pipeline import nlp_pipeline
+    return {
+        "engagement_model_ready": engagement_predictor._is_fitted,
+        "nlp_sentiment_loaded": nlp_pipeline._sentiment_model is not None,
+        "nlp_toxic_loaded": nlp_pipeline._toxic_model is not None,
+        "database": runtime_state.get("database", {}).get("status", "unknown"),
+        "hint": "If engagement_model_ready is false, posts will show with a fallback 3% engagement score.",
     }
 
 
