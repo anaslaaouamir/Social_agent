@@ -281,7 +281,9 @@ async def _fetch_instagram_conversations(account: SocialAccount) -> list[dict]:
             if not instagram_account_id:
                 continue
             try:
-                conversations = await svc.get_conversations(instagram_account_id)
+                target_id = page_id if page_id else instagram_account_id
+                #target_id = 1183477331505585
+                conversations = await svc.get_conversations(target_id)
                 logger.info(
                     "Instagram DM fetch token_source='{}' returned {} conversation(s) for account_name='{}'",
                     token_source,

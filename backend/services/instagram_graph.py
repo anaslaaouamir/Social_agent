@@ -234,9 +234,8 @@ class InstagramService:
             f"{ig_user_id}/conversations",
             platform="instagram",
             fields=(
-                "id,updated_time,snippet,"
-                "participants{id,username,name},"
-                "messages.limit(20){id,text,message,from{id,username,name},to{id,username,name},created_time,attachments}"
+                "id,updated_time,"
+                "messages.limit(20){id,message,from,to,created_time}"
             ),
         )
         if "error" in data:

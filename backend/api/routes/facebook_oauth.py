@@ -51,6 +51,7 @@ async def _upsert_social_account(
     account_name: str,
     access_token: str,
     followers_count: int = 0,
+    metadata_: dict | None = None,
 ) -> SocialAccount:
     result = await db.execute(
         select(SocialAccount).where(
@@ -69,6 +70,7 @@ async def _upsert_social_account(
             access_token=access_token,
             refresh_token="",
             followers_count=followers_count,
+            metadata_=metadata_ or {},
         )
         db.add(account)
         return account
@@ -77,6 +79,8 @@ async def _upsert_social_account(
     account.account_name = account_name
     account.access_token = access_token
     account.followers_count = followers_count
+    if metadata_:
+        account.metadata_ = {**(account.metadata_ or {}), **metadata_}
     return account
 
 
@@ -124,7 +128,8 @@ async def facebook_callback(
     if not code or not state:
         raise HTTPException(400, "Missing OAuth callback parameters")
 
-    user_result = await db.execute(select(User).where(User.id == uuid.UUID(state)))
+    clean_state = state.replace("instagram:", "").replace("facebook:", "")
+    user_result = await db.execute(select(User).where(User.id == uuid.UUID(clean_state)))
     user = user_result.scalar_one_or_none()
     if not user:
         raise HTTPException(404, "User not found")
@@ -196,6 +201,12 @@ async def facebook_callback(
                     account_name=ig.get("username", ig.get("name", "")),
                     access_token=page_token,
                     followers_count=ig.get("followers_count", 0),
+                    metadata_={
+                        "instagram_account_id": ig["id"],
+                        "instagram_username": ig.get("username", ig.get("name", "")),
+                        "facebook_page_id": page["id"],
+                        "facebook_page_name": page["name"],
+                    },
                 )
                 saved.append({"platform": "instagram", "name": ig.get("username", "")})
 
