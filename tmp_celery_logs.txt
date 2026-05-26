@@ -1,0 +1,410 @@
+﻿ 
+ -------------- celery@1a79e5479b78 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-05-22 14:11:08
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         social_agent:0x7f9a659c2150
+- ** ---------- .> transport:   redis://redis:6379/1
+- ** ---------- .> results:     redis://redis:6379/2
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> analytics        exchange=analytics(direct) key=analytics
+                .> monitoring       exchange=monitoring(direct) key=monitoring
+                .> nlp              exchange=nlp(direct) key=nlp
+                .> publishing       exchange=publishing(direct) key=publishing
+                .> reports          exchange=reports(direct) key=reports
+                .> scheduling       exchange=scheduling(direct) key=scheduling
+
+[tasks]
+  . services.analytics.compute_hourly_metrics
+  . services.analytics.refresh_hashtag_trends
+  . services.comment_monitor.monitor_account
+  . services.comment_monitor.monitor_all_accounts
+  . services.report_generator.generate_weekly_report
+  . services.scheduler.process_due_posts
+  . services.scheduler.publish_post_task
+
+
+worker: Warm shutdown (MainProcess)
+ 
+ -------------- celery@1a79e5479b78 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-05-22 14:19:09
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         social_agent:0x7fce53500e10
+- ** ---------- .> transport:   redis://redis:6379/1
+- ** ---------- .> results:     redis://redis:6379/2
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> analytics        exchange=analytics(direct) key=analytics
+                .> monitoring       exchange=monitoring(direct) key=monitoring
+                .> nlp              exchange=nlp(direct) key=nlp
+                .> publishing       exchange=publishing(direct) key=publishing
+                .> reports          exchange=reports(direct) key=reports
+                .> scheduling       exchange=scheduling(direct) key=scheduling
+
+[tasks]
+  . services.analytics.compute_hourly_metrics
+  . services.analytics.refresh_hashtag_trends
+  . services.comment_monitor.monitor_account
+  . services.comment_monitor.monitor_all_accounts
+  . services.report_generator.generate_weekly_report
+  . services.scheduler.process_due_posts
+  . services.scheduler.publish_post_task
+
+ 
+ -------------- celery@1a79e5479b78 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-05-22 14:43:50
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         social_agent:0x7ca0305e4450
+- ** ---------- .> transport:   redis://redis:6379/1
+- ** ---------- .> results:     redis://redis:6379/2
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> analytics        exchange=analytics(direct) key=analytics
+                .> monitoring       exchange=monitoring(direct) key=monitoring
+                .> nlp              exchange=nlp(direct) key=nlp
+                .> publishing       exchange=publishing(direct) key=publishing
+                .> reports          exchange=reports(direct) key=reports
+                .> scheduling       exchange=scheduling(direct) key=scheduling
+
+[tasks]
+  . services.analytics.compute_hourly_metrics
+  . services.analytics.refresh_hashtag_trends
+  . services.comment_monitor.monitor_account
+  . services.comment_monitor.monitor_all_accounts
+  . services.report_generator.generate_weekly_report
+  . services.scheduler.process_due_posts
+  . services.scheduler.publish_post_task
+
+ 
+ -------------- celery@1a79e5479b78 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-05-25 09:12:21
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         social_agent:0x72ec84b915d0
+- ** ---------- .> transport:   redis://redis:6379/1
+- ** ---------- .> results:     redis://redis:6379/2
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> analytics        exchange=analytics(direct) key=analytics
+                .> monitoring       exchange=monitoring(direct) key=monitoring
+                .> nlp              exchange=nlp(direct) key=nlp
+                .> publishing       exchange=publishing(direct) key=publishing
+                .> reports          exchange=reports(direct) key=reports
+                .> scheduling       exchange=scheduling(direct) key=scheduling
+
+[tasks]
+  . services.analytics.compute_hourly_metrics
+  . services.analytics.refresh_hashtag_trends
+  . services.comment_monitor.monitor_account
+  . services.comment_monitor.monitor_all_accounts
+  . services.report_generator.generate_weekly_report
+  . services.scheduler.process_due_posts
+  . services.scheduler.publish_post_task
+
+
+worker: Warm shutdown (MainProcess)
+ 
+ -------------- celery@1a79e5479b78 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-05-25 10:27:07
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         social_agent:0x7d931ed2dc50
+- ** ---------- .> transport:   redis://redis:6379/1
+- ** ---------- .> results:     redis://redis:6379/2
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> analytics        exchange=analytics(direct) key=analytics
+                .> monitoring       exchange=monitoring(direct) key=monitoring
+                .> nlp              exchange=nlp(direct) key=nlp
+                .> publishing       exchange=publishing(direct) key=publishing
+                .> reports          exchange=reports(direct) key=reports
+                .> scheduling       exchange=scheduling(direct) key=scheduling
+
+[tasks]
+  . services.analytics.compute_hourly_metrics
+  . services.analytics.refresh_hashtag_trends
+  . services.comment_monitor.monitor_account
+  . services.comment_monitor.monitor_all_accounts
+  . services.report_generator.generate_weekly_report
+  . services.scheduler.process_due_posts
+  . services.scheduler.publish_post_task
+
+ 
+ -------------- celery@1a79e5479b78 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-05-25 10:40:37
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         social_agent:0x7848e3558050
+- ** ---------- .> transport:   redis://redis:6379/1
+- ** ---------- .> results:     redis://redis:6379/2
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> analytics        exchange=analytics(direct) key=analytics
+                .> monitoring       exchange=monitoring(direct) key=monitoring
+                .> nlp              exchange=nlp(direct) key=nlp
+                .> publishing       exchange=publishing(direct) key=publishing
+                .> reports          exchange=reports(direct) key=reports
+                .> scheduling       exchange=scheduling(direct) key=scheduling
+
+[tasks]
+  . services.analytics.compute_hourly_metrics
+  . services.analytics.refresh_hashtag_trends
+  . services.comment_monitor.monitor_account
+  . services.comment_monitor.monitor_all_accounts
+  . services.report_generator.generate_weekly_report
+  . services.scheduler.process_due_posts
+  . services.scheduler.publish_post_task
+
+ 
+ -------------- celery@1a79e5479b78 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-05-25 11:17:24
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         social_agent:0x7eca60bf0e10
+- ** ---------- .> transport:   redis://redis:6379/1
+- ** ---------- .> results:     redis://redis:6379/2
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> analytics        exchange=analytics(direct) key=analytics
+                .> monitoring       exchange=monitoring(direct) key=monitoring
+                .> nlp              exchange=nlp(direct) key=nlp
+                .> publishing       exchange=publishing(direct) key=publishing
+                .> reports          exchange=reports(direct) key=reports
+                .> scheduling       exchange=scheduling(direct) key=scheduling
+
+[tasks]
+  . services.analytics.compute_hourly_metrics
+  . services.analytics.refresh_hashtag_trends
+  . services.comment_monitor.monitor_account
+  . services.comment_monitor.monitor_all_accounts
+  . services.report_generator.generate_weekly_report
+  . services.scheduler.process_due_posts
+  . services.scheduler.publish_post_task
+
+ 
+ -------------- celery@1a79e5479b78 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-05-25 11:52:13
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         social_agent:0x73ea6f7b4410
+- ** ---------- .> transport:   redis://redis:6379/1
+- ** ---------- .> results:     redis://redis:6379/2
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> analytics        exchange=analytics(direct) key=analytics
+                .> monitoring       exchange=monitoring(direct) key=monitoring
+                .> nlp              exchange=nlp(direct) key=nlp
+                .> publishing       exchange=publishing(direct) key=publishing
+                .> reports          exchange=reports(direct) key=reports
+                .> scheduling       exchange=scheduling(direct) key=scheduling
+
+[tasks]
+  . services.analytics.compute_hourly_metrics
+  . services.analytics.refresh_hashtag_trends
+  . services.comment_monitor.monitor_account
+  . services.comment_monitor.monitor_all_accounts
+  . services.report_generator.generate_weekly_report
+  . services.scheduler.process_due_posts
+  . services.scheduler.publish_post_task
+
+ 
+ -------------- celery@1a79e5479b78 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-05-25 12:02:50
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         social_agent:0x76edbf1656d0
+- ** ---------- .> transport:   redis://redis:6379/1
+- ** ---------- .> results:     redis://redis:6379/2
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> analytics        exchange=analytics(direct) key=analytics
+                .> monitoring       exchange=monitoring(direct) key=monitoring
+                .> nlp              exchange=nlp(direct) key=nlp
+                .> publishing       exchange=publishing(direct) key=publishing
+                .> reports          exchange=reports(direct) key=reports
+                .> scheduling       exchange=scheduling(direct) key=scheduling
+
+[tasks]
+  . services.analytics.compute_hourly_metrics
+  . services.analytics.refresh_hashtag_trends
+  . services.comment_monitor.monitor_account
+  . services.comment_monitor.monitor_all_accounts
+  . services.report_generator.generate_weekly_report
+  . services.scheduler.process_due_posts
+  . services.scheduler.publish_post_task
+
+ 
+ -------------- celery@1a79e5479b78 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-05-25 12:34:16
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         social_agent:0x74856ba81bd0
+- ** ---------- .> transport:   redis://redis:6379/1
+- ** ---------- .> results:     redis://redis:6379/2
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> analytics        exchange=analytics(direct) key=analytics
+                .> monitoring       exchange=monitoring(direct) key=monitoring
+                .> nlp              exchange=nlp(direct) key=nlp
+                .> publishing       exchange=publishing(direct) key=publishing
+                .> reports          exchange=reports(direct) key=reports
+                .> scheduling       exchange=scheduling(direct) key=scheduling
+
+[tasks]
+  . services.analytics.compute_hourly_metrics
+  . services.analytics.refresh_hashtag_trends
+  . services.comment_monitor.monitor_account
+  . services.comment_monitor.monitor_all_accounts
+  . services.report_generator.generate_weekly_report
+  . services.scheduler.process_due_posts
+  . services.scheduler.publish_post_task
+
+ 
+ -------------- celery@1a79e5479b78 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-05-25 13:56:58
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         social_agent:0x7ba3d8259e90
+- ** ---------- .> transport:   redis://redis:6379/1
+- ** ---------- .> results:     redis://redis:6379/2
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> analytics        exchange=analytics(direct) key=analytics
+                .> monitoring       exchange=monitoring(direct) key=monitoring
+                .> nlp              exchange=nlp(direct) key=nlp
+                .> publishing       exchange=publishing(direct) key=publishing
+                .> reports          exchange=reports(direct) key=reports
+                .> scheduling       exchange=scheduling(direct) key=scheduling
+
+[tasks]
+  . services.analytics.compute_hourly_metrics
+  . services.analytics.refresh_hashtag_trends
+  . services.comment_monitor.monitor_account
+  . services.comment_monitor.monitor_all_accounts
+  . services.report_generator.generate_weekly_report
+  . services.scheduler.process_due_posts
+  . services.scheduler.publish_post_task
+
+ 
+ -------------- celery@1a79e5479b78 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-05-25 14:17:00
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         social_agent:0x7d5450fe0ad0
+- ** ---------- .> transport:   redis://redis:6379/1
+- ** ---------- .> results:     redis://redis:6379/2
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> analytics        exchange=analytics(direct) key=analytics
+                .> monitoring       exchange=monitoring(direct) key=monitoring
+                .> nlp              exchange=nlp(direct) key=nlp
+                .> publishing       exchange=publishing(direct) key=publishing
+                .> reports          exchange=reports(direct) key=reports
+                .> scheduling       exchange=scheduling(direct) key=scheduling
+
+[tasks]
+  . services.analytics.compute_hourly_metrics
+  . services.analytics.refresh_hashtag_trends
+  . services.comment_monitor.monitor_account
+  . services.comment_monitor.monitor_all_accounts
+  . services.report_generator.generate_weekly_report
+  . services.scheduler.process_due_posts
+  . services.scheduler.publish_post_task
+
+ 
+ -------------- celery@1a79e5479b78 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-05-25 14:31:26
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         social_agent:0x7b409a9417d0
+- ** ---------- .> transport:   redis://redis:6379/1
+- ** ---------- .> results:     redis://redis:6379/2
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> analytics        exchange=analytics(direct) key=analytics
+                .> monitoring       exchange=monitoring(direct) key=monitoring
+                .> nlp              exchange=nlp(direct) key=nlp
+                .> publishing       exchange=publishing(direct) key=publishing
+                .> reports          exchange=reports(direct) key=reports
+                .> scheduling       exchange=scheduling(direct) key=scheduling
+
+[tasks]
+  . services.analytics.compute_hourly_metrics
+  . services.analytics.refresh_hashtag_trends
+  . services.comment_monitor.monitor_account
+  . services.comment_monitor.monitor_all_accounts
+  . services.report_generator.generate_weekly_report
+  . services.scheduler.process_due_posts
+  . services.scheduler.publish_post_task
+
+ 
+ -------------- celery@1a79e5479b78 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-05-25 14:59:20
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         social_agent:0x7f246a60f410
+- ** ---------- .> transport:   redis://redis:6379/1
+- ** ---------- .> results:     redis://redis:6379/2
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> analytics        exchange=analytics(direct) key=analytics
+                .> monitoring       exchange=monitoring(direct) key=monitoring
+                .> nlp              exchange=nlp(direct) key=nlp
+                .> publishing       exchange=publishing(direct) key=publishing
+                .> reports          exchange=reports(direct) key=reports
+                .> scheduling       exchange=scheduling(direct) key=scheduling
+
+[tasks]
+  . services.analytics.compute_hourly_metrics
+  . services.analytics.refresh_hashtag_trends
+  . services.comment_monitor.monitor_account
+  . services.comment_monitor.monitor_all_accounts
+  . services.report_generator.generate_weekly_report
+  . services.scheduler.process_due_posts
+  . services.scheduler.publish_post_task
+

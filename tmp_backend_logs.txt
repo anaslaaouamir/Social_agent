@@ -1,0 +1,388 @@
+﻿INFO:     172.18.0.12:39388 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122108247705302023 HTTP/1.1" 500 Internal Server Error
+INFO:     172.18.0.12:45954 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:45962 - "GET /api/nlp/rag/sources HTTP/1.1" 200 OK
+INFO:     172.18.0.12:45974 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.3:52260 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:41076 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:49100 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:45944 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.3:50382 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:53836 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.3:38938 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:39440 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.3:54428 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:44390 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:44106 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.3:49458 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:52584 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:54242 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:38478 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:52570 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.4:32890 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:53276 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.4:48804 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:44540 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:55842 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:33808 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.4:60424 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:40604 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:60558 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:54186 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:46334 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:35052 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:40384 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:44908 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:40370 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.4:46788 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:53936 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:43718 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:35012 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:36542 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:35010 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.4:41748 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:47436 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:47370 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:49770 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:57628 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:49776 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.4:33700 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:45022 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:40918 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:45114 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:45100 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.4:47934 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:46996 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:46998 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.11:33534 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122108247705302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:33544 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122108247705302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:33546 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.11:33520 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:33538 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.11:59266 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:34494 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:59254 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:59278 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:35186 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:49162 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:38494 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:54266 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:46566 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:42118 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:52352 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:45512 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:34082 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:48964 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:33076 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:60792 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:38870 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:36760 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:44842 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:36812 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:35502 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:37224 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:46742 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:39082 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:34934 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:47726 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:42060 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:47274 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:42938 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:52336 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:44846 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:60362 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:33012 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:42750 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:52842 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:49460 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:59782 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.11:59790 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.11:59806 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:59822 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.11:59836 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.11:55888 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     172.18.0.11:42704 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     172.18.0.11:55866 - "GET /api/nlp/rag/sources HTTP/1.1" 200 OK
+INFO:     172.18.0.11:40846 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.11:55856 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.11:55880 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:42726 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.11:42722 - "GET /api/nlp/rag/sources HTTP/1.1" 200 OK
+INFO:     172.18.0.11:42714 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:42740 - "GET /api/alerts/?acknowledged=false&limit=5 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:40764 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:42748 - "GET /api/posts/live/feed?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&limit=5 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:38980 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:42746 - "GET /api/analytics/overview?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&days=30 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:35288 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:46562 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:48326 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.4:59720 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:42138 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:49072 - "GET /api/posts/live/feed?account_id=9e26d692-641a-428a-8f6b-e61b5bdabe35 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:36292 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:42158 - "GET /api/posts/live/feed?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:37650 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:42142 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.11:59130 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:47894 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:44932 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.4:58132 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:50096 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:43882 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     172.18.0.11:43886 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     172.18.0.11:56282 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     172.18.0.11:52828 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.11:52824 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.11:43822 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     172.18.0.11:43846 - "GET /api/nlp/rag/sources HTTP/1.1" 200 OK
+INFO:     172.18.0.11:43870 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:43860 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.11:43852 - "GET /api/alerts/?acknowledged=false&limit=5 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:54964 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:43842 - "GET /api/posts/live/feed?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&limit=5 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:59324 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:55832 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:58180 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:47694 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.4:59198 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:58068 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:36370 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:47714 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:47706 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.11:46540 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.11:60504 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:40198 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:40206 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.4:38380 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:35234 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:40468 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:60498 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:48636 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:48648 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:46172 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:48664 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.11:48676 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:50090 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:44828 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:49252 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:41440 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:36600 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:41426 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.11:53876 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:50106 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:35540 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:49100 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:45042 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.4:59498 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:53880 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:41324 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:60198 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:45452 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:41336 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.11:44586 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:35114 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:51746 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:37564 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:50534 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:50714 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.4:47756 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:35648 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:39136 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:35656 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.4:57732 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:50172 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:55474 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:53574 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:50122 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.11:52672 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.11:59872 - "GET /api/nlp/rag/sources HTTP/1.1" 200 OK
+INFO:     172.18.0.11:59900 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.11:59886 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:41664 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.4:34992 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.11:59864 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.11:43668 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.4:52906 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:46952 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:56402 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:60576 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.1:43706 - "GET /api/ready HTTP/1.1" 200 OK
+INFO:     172.18.0.6:43856 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:42742 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:40716 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:52176 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:37216 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:41874 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:49910 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:52680 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     172.18.0.12:52682 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     172.18.0.1:57024 - "GET /api/ready HTTP/1.1" 200 OK
+INFO:     172.18.0.12:48110 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.12:48128 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:48114 - "GET /api/nlp/rag/sources HTTP/1.1" 200 OK
+INFO:     172.18.0.12:53192 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.12:51174 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:51518 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:51344 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:60232 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:41774 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:51176 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.12:44980 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:44168 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:52278 - "GET /api/posts/?status=draft HTTP/1.1" 200 OK
+INFO:     172.18.0.12:52286 - "GET /api/posts/?status=scheduled HTTP/1.1" 200 OK
+INFO:     172.18.0.12:52294 - "GET /api/posts/?status=published HTTP/1.1" 200 OK
+INFO:     172.18.0.12:52304 - "GET /api/posts/?status=failed HTTP/1.1" 200 OK
+INFO:     172.18.0.12:44986 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.6:38826 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:52716 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:59194 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:51678 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:51684 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:49448 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:58712 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:35670 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.6:44152 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:35672 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.12:54224 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:41890 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:37444 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:58722 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:52518 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.12:58018 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:49042 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:52528 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:39134 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.6:39860 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:39142 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:39152 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:45298 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:49496 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:60148 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:48522 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:47510 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:58032 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:54410 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:59114 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:44888 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:44898 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:46824 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:55564 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:42314 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.12:42900 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:42884 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:59698 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:33140 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.12:33184 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:51630 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:44646 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:56162 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:34042 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:44112 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.6:54238 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:59678 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:54496 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:48442 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:46872 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.12:44318 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:36058 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:56056 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:53956 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.6:60248 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:40906 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:33472 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:59992 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.6:55050 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:41130 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.12:57286 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.6:60320 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:36740 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:49434 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:47720 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:53162 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:53290 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:45242 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:42866 - "GET /api/nlp/rag/sources HTTP/1.1" 200 OK
+INFO:     172.18.0.12:42880 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.12:42868 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.12:42884 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:54032 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     172.18.0.3:58120 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:51092 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     172.18.0.12:51108 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     172.18.0.12:51118 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.12:51112 - "GET /api/nlp/rag/sources HTTP/1.1" 200 OK
+INFO:     172.18.0.12:51134 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:51164 - "GET /api/alerts/?acknowledged=false&limit=5 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:51146 - "GET /api/posts/live/feed?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&limit=5 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:51176 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.3:60750 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:51180 - "GET /api/posts/live/feed HTTP/1.1" 200 OK
+INFO:     172.18.0.12:51154 - "GET /api/analytics/overview?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&days=30 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:55192 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:34850 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122108247705302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.3:55002 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:34862 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:55200 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:34892 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122108247705302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:34876 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:34908 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:56234 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122108247705302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.3:35520 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:56224 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:35220 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122108247705302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:35212 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:35234 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:48036 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122108247705302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:48040 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.3:38058 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:36358 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122108247705302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:48052 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:36370 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.3:54074 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:36386 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:43932 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122108247705302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.3:50376 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:43944 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:51992 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:43928 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:52010 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122108247705302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:52006 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:32994 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122108247705302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:33008 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122108247705302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:32992 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.3:44598 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:32980 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:33016 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122108247705302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:57560 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:57562 - "GET /api/posts/live/feed?limit=20 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:57574 - "GET /api/posts/live/comments?account_id=9e26d692-641a-428a-8f6b-e61b5bdabe35&platform_post_id=18121841854561408 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:47024 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.3:50838 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:47026 - "GET /api/posts/live/comments?account_id=9e26d692-641a-428a-8f6b-e61b5bdabe35&platform_post_id=17908521501407960 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:47010 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:54620 - "GET /api/posts/live/comments?account_id=9e26d692-641a-428a-8f6b-e61b5bdabe35&platform_post_id=17908521501407960 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:47034 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:54632 - "GET /api/posts/live/comments?account_id=9e26d692-641a-428a-8f6b-e61b5bdabe35&platform_post_id=18414561658133483 HTTP/1.1" 200 OK
+INFO:     172.18.0.3:47054 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:54664 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122101435461302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:54648 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.12:33380 - "GET /api/posts/live/comments?account_id=fe3c1245-acc8-4649-9263-f32dbc5de242&platform_post_id=1183477331505585_122103471051302023 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:33394 - "GET /api/accounts/ HTTP/1.1" 200 OK
+INFO:     172.18.0.12:57864 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.12:33386 - "GET /api/dm/live?kind=dm HTTP/1.1" 200 OK
+INFO:     172.18.0.3:49668 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:49682 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:54448 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.3:59470 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:52262 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:35680 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.3:54472 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:33146 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:50314 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:51454 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.12:55342 - "GET /api/alerts/?acknowledged=false&limit=500 HTTP/1.1" 200 OK
+INFO:     172.18.0.3:56080 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:59064 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:60958 - "GET /metrics HTTP/1.1" 404 Not Found
+INFO:     172.18.0.3:49510 - "GET /metrics HTTP/1.1" 404 Not Found
