@@ -535,7 +535,7 @@ async def get_live_inbox(
 
     for item in items:
         if item.get("message"):
-            item["label"] = "neutral"
+            item["label"] = "pending"
             item["sentiment_score"] = 0.0
             item["is_spam"] = False
             item["is_toxic"] = False
@@ -544,7 +544,7 @@ async def get_live_inbox(
         for message in item.get("messages") or []:
             if message.get("is_from_page") or not message.get("text"):
                 continue
-            message["label"] = "neutral"
+            message["label"] = "pending"
             message["sentiment_score"] = 0.0
             message["is_spam"] = False
             message["is_toxic"] = False
@@ -554,6 +554,14 @@ async def get_live_inbox(
         try:
             stored = await persist_live_dm_item(db, item)
             item["stored_dm_id"] = str(stored.id)
+            
+            # --- ADD THIS TO SYNC WITH DATABASE ---
+            if stored.intent and stored.intent != "pending":
+                item["label"] = stored.intent
+                item["is_toxic"] = stored.intent == "toxic"
+                item["is_spam"] = stored.intent == "spam"
+                item["sentiment_score"] = stored.sentiment_score
+                
             if item.get("label") in {"negative", "toxic"} or item.get("is_toxic"):
                 await ensure_negative_dm_alert(db, item=item)
         except Exception as exc:

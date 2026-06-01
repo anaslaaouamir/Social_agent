@@ -98,9 +98,53 @@ def monitor_account(account_id: str):
                     if analysis.is_spam or analysis.is_toxic:
                         comment.is_hidden = True
 
+                    if analysis.is_spam or analysis.is_toxic:
+                        comment.is_hidden = True
+
+                    if analysis.is_toxic or analysis.sentiment == "negative":
+                        
+                        alert = Alert(
+                            id=uuid.uuid4(),
+                            account_id=uuid.UUID(account_id),
+                            severity=AlertSeverity.HIGH if analysis.is_toxic else AlertSeverity.MEDIUM,
+                            alert_type="negative_comment",
+                            title="Commentaire negatif detecte (Background)",
+                            description=f"{comment.author_name}: {comment.text[:180]}",
+                            metadata_={}
+                        )
+                        session.add(alert)
+
                     all_analyses.append(analysis)
 
                 session.commit()
+
+            # --- NEW DM PROCESSING BLOCK ---
+            from models.domain import DirectMessage
+            dms = session.execute(
+                select(DirectMessage).where(
+                    DirectMessage.account_id == uuid.UUID(account_id),
+                    DirectMessage.intent == "pending",
+                ).limit(20)
+            ).scalars().all()
+            for dm in dms:
+                analysis = await nlp_pipeline.process(dm.message)
+                dm.intent = "spam" if analysis.is_spam else "toxic" if analysis.is_toxic else analysis.sentiment
+                dm.sentiment_score = analysis.sentiment_score
+                dm.human_handoff = bool(dm.intent in {"negative", "toxic"})
+                
+                if dm.human_handoff:
+                    alert = Alert(
+                        id=uuid.uuid4(),
+                        account_id=uuid.UUID(account_id),
+                        severity=AlertSeverity.HIGH if analysis.is_toxic else AlertSeverity.MEDIUM,
+                        alert_type="negative_dm",
+                        title="DM negatif detecte (Background)",
+                        description=f"{dm.sender_name}: {dm.message[:180]}",
+                        metadata_={}
+                    )
+                    session.add(alert)
+            session.commit()
+            # --- END NEW DM PROCESSING BLOCK ---
 
             if all_analyses:
                 negative_count = sum(1 for a in all_analyses if a.sentiment == "negative" or a.is_toxic)

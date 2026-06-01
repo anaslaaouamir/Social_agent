@@ -60,3 +60,9 @@ temp/
 *.tmp
 pytest-cache-files-*/
 backend/pytest-cache-files-*/
+
+
+
+venv*/
+.venv/
+env/

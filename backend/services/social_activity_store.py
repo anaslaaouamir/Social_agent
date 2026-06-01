@@ -117,13 +117,15 @@ async def persist_live_comment(
     stored.post_id = post.id
     stored.author_name = str(comment.get("author") or stored.author_name or "Utilisateur")
     stored.text = str(comment.get("text") or stored.text or "")
-    stored.sentiment = _sentiment_label(label, is_spam=is_spam, is_toxic=is_toxic)
-    stored.sentiment_score = float(sentiment_score or 0.0)
-    stored.emotion = "anger" if is_toxic or label == "negative" else ("curiosity" if is_question else "neutral")
+    if label is not None or not getattr(stored, "sentiment", None):
+        stored.sentiment = _sentiment_label(label, is_spam=is_spam, is_toxic=is_toxic)
+        stored.sentiment_score = float(sentiment_score or 0.0)
+        stored.emotion = "anger" if is_toxic or label == "negative" else ("curiosity" if is_question else "neutral")
+        stored.is_hidden = bool(is_spam or is_toxic)
+        
     stored.is_question = bool(is_question)
     stored.is_lead = bool(is_lead)
     stored.reply_priority = int(reply_priority or 0)
-    stored.is_hidden = bool(is_spam or is_toxic)
     stored.nlp_entities = {
         "source": "live_platform",
         "label": label,
@@ -159,11 +161,11 @@ async def persist_live_dm_item(db: AsyncSession, item: dict[str, Any]) -> Direct
         db.add(stored)
 
     stored.sender_name = str(item.get("sender_name") or stored.sender_name or "Client")
-    stored.language_detected = str(item.get("language") or item.get("language_detected") or "unknown")
-    stored.intent = str(item.get("label") or item.get("intent") or "general")
-    stored.sentiment_score = float(item.get("sentiment_score") or 0.0)
+    if str(item.get("label")) != "pending" or not getattr(stored, "intent", None):
+        stored.intent = str(item.get("label") or item.get("intent") or "general")
+        stored.sentiment_score = float(item.get("sentiment_score") or 0.0)
+        stored.human_handoff = bool(item.get("label") in {"negative", "toxic"} or item.get("is_toxic"))
     stored.conversation_history = item.get("messages") or []
-    stored.human_handoff = bool(item.get("label") in {"negative", "toxic"} or item.get("is_toxic"))
     stored.ai_response = conversation_id
     await db.flush()
     return stored

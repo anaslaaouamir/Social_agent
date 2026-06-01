@@ -600,7 +600,7 @@ async def _enrich_and_store_live_comment(
     comment: dict,
 ) -> dict:
     enriched = await _enrich_live_comment(comment)
-    label = str(enriched.get("label") or "neutral")
+    label = None
     is_question = "?" in str(enriched.get("text") or "")
     is_lead = any(
         token in str(enriched.get("text") or "").lower()
@@ -619,6 +619,14 @@ async def _enrich_and_store_live_comment(
         reply_priority=int(enriched.get("reply_priority") or 0),
     )
     enriched["stored_comment_id"] = str(stored.id)
+    
+    # --- ADD THIS TO SYNC WITH DATABASE ---
+    if stored.sentiment:
+        enriched["label"] = stored.sentiment.value
+        enriched["is_toxic"] = stored.sentiment.value == "toxic"
+        enriched["is_spam"] = stored.sentiment.value == "spam"
+        enriched["sentiment_score"] = stored.sentiment_score
+        
     if label in {"negative", "toxic"} or enriched.get("is_toxic"):
         await ensure_negative_comment_alert(db, account_id=account.id, post=post, comment=stored, platform=account.platform)
     return enriched
