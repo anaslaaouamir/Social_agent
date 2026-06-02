@@ -264,6 +264,7 @@ class InstagramService:
             json={
                 "recipient": {"id": recipient_id},
                 "message": {"text": message},
+                "messaging_type": "RESPONSE",
             }
         )
 

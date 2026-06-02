@@ -25,6 +25,8 @@ from api.routes import (
 
 from core.runtime_state import mark_runtime, runtime_state
 
+from fastapi.staticfiles import StaticFiles
+
 settings = get_settings()
 
 
@@ -78,6 +80,8 @@ app = FastAPI(
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
 )
+
+app.mount("/media", StaticFiles(directory="media"), name="media"),
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(

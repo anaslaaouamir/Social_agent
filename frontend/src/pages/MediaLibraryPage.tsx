@@ -134,9 +134,12 @@ export default function MediaLibraryPage() {
     if (!pendingFile) return
     setUploading(true)
     try {
-      const persistentUrl = pendingFile.type.startsWith('image/')
-        ? await downscaleImageFile(pendingFile)
-        : await fileToDataUrl(pendingFile)
+      let persistentUrl;
+      if (pendingFile.type.startsWith('image/')) {
+        persistentUrl = await downscaleImageFile(pendingFile);
+      } else {
+        persistentUrl = await mediaApi.uploadVideo(pendingFile);
+      }
       const group = uploadForm.group || DEFAULT_GROUP
       const item: MediaItem = {
         id: genId(),

@@ -429,7 +429,10 @@ async def _send_unified_reply(account: SocialAccount, payload: dict) -> dict:
 
             if not reply_target_id:
                 raise HTTPException(400, "recipient_id is required for Instagram DM replies")
-            response = await svc.send_dm(account.account_id, reply_target_id, message)
+                        # Use the Facebook Page ID instead of the Instagram Account ID
+            metadata = account.metadata_ or {}
+            page_id = str(metadata.get("facebook_page_id") or account.account_id).strip()
+            response = await svc.send_dm(page_id, reply_target_id, message)
             return {"status": "sent", "mode": "dm", "result": response}
         finally:
             await svc.close()

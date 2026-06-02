@@ -34,11 +34,20 @@ from services.threads_graph import ThreadsGraphService
 from services.twitter_graph import TwitterGraphService
 from services.youtube_graph import YouTubeGraphService
 
+import os
+import uuid
+import shutil
+from fastapi import UploadFile, File
+
 router = APIRouter()
 settings = get_settings()
 
 
 def _is_public_http_url(value: str) -> bool:
+
+    if value.startswith("/media/"):
+        return True
+    
     try:
         parsed = urlparse(value)
     except Exception:
@@ -926,3 +935,17 @@ async def publish_now(
         raise HTTPException(500, f"Failed to enqueue: {e}")
 
     return {"status": "publishing", "post_id": post_id}
+
+
+@router.post("/upload-video")
+async def upload_video(file: UploadFile = File(...)):
+    """Upload a video directly to the media folder."""
+    os.makedirs("media", exist_ok=True)
+    ext = file.filename.split('.')[-1] if '.' in file.filename else 'mp4'
+    filename = f"{uuid.uuid4()}.{ext}"
+    filepath = os.path.join("media", filename)
+    
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    return {"url": f"/media/{filename}"}

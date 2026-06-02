@@ -184,6 +184,10 @@ class SocialPublisherService:
         post_id: str | None = None,
         media_index: int | None = None,
     ) -> str:
+        
+        if media_url.startswith("/media/"):
+            return f"{self._public_backend_base_url()}{media_url}"
+        
         if self._is_public_http_url(media_url):
             return media_url
 
@@ -406,6 +410,22 @@ class SocialPublisherService:
 
             resp.raise_for_status()
             container_id = resp.json()["id"]
+
+            # --- ADD THIS NEW POLLING LOGIC FOR VIDEOS ---
+            if content_type == "video":
+                import asyncio
+                for _ in range(30):  # Wait up to 150 seconds for Instagram to process the video
+                    status_resp = await self._client.get(
+                        f"https://graph.facebook.com/v19.0/{container_id}",
+                        params={"fields": "status_code", "access_token": token}
+                    )
+                    status_code = status_resp.json().get("status_code")
+                    if status_code == "FINISHED":
+                        break
+                    if status_code == "ERROR":
+                        raise ValueError("Instagram server failed to process the video.")
+                    await asyncio.sleep(5)
+            # ---------------------------------------------
 
             # Step 2: Publish
             pub_resp = await self._client.post(

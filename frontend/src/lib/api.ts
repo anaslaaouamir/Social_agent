@@ -70,6 +70,15 @@ export const postsApi = {
 
 // Media
 export const mediaApi = {
+
+  uploadVideo: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/api/posts/upload-video', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }).then(res => res.data.url)
+  },
+
   library: {
     list: () => listMediaLibraryItems(),
     add: (item: MediaItem) => addMediaLibraryItem(item), /*
