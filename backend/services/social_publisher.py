@@ -261,12 +261,12 @@ class SocialPublisherService:
 
         normalized_platform = platform.lower()
         normalized_content_type = content_type.lower()
-        if normalized_content_type == "story":
-            return self._unsupported_content_result(
-                normalized_platform,
-                normalized_content_type,
-                "story publishing is not implemented in this app yet.",
-            )
+        # if normalized_content_type == "story":
+        #     return self._unsupported_content_result(
+        #         normalized_platform,
+        #         normalized_content_type,
+        #         "story publishing is not implemented in this app yet.",
+        #     )
         if normalized_content_type == "reel" and normalized_platform != "instagram":
             if normalized_platform == "youtube":
                 normalized_content_type = "video"
@@ -392,6 +392,33 @@ class SocialPublisherService:
                         "access_token": token,
                     },
                 )
+            elif content_type == "story":
+                prepared_url = await self._prepare_non_facebook_media_url(
+                    "instagram",
+                    media_urls[0] if media_urls else "",
+                    post_id=source_post_id,
+                    media_index=0,
+                )
+                
+                payload = {
+                    "media_type": "STORIES",
+                    "access_token": token,
+                    "image_url": prepared_url
+                }
+                
+                try:
+                    resp = await self._client.post(f"https://graph.facebook.com/v19.0/{account_id}/media", data=payload)
+                    resp.raise_for_status()
+                    is_video = False
+                except httpx.HTTPStatusError as e:
+                    if "format is not supported" in e.response.text or "video" in e.response.text.lower():
+                        payload.pop("image_url")
+                        payload["video_url"] = prepared_url
+                        resp = await self._client.post(f"https://graph.facebook.com/v19.0/{account_id}/media", data=payload)
+                        resp.raise_for_status()
+                        is_video = True
+                    else:
+                        raise
             else:
                 prepared_url = await self._prepare_non_facebook_media_url(
                     "instagram",
@@ -412,7 +439,7 @@ class SocialPublisherService:
             container_id = resp.json()["id"]
 
             # --- ADD THIS NEW POLLING LOGIC FOR VIDEOS ---
-            if content_type == "video":
+            if content_type == "video" or (content_type == "story" and is_video):
                 import asyncio
                 for _ in range(30):  # Wait up to 150 seconds for Instagram to process the video
                     status_resp = await self._client.get(

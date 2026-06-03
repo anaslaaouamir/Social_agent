@@ -168,10 +168,10 @@ export default function CreatePostPage() {
     }
 
     const selectedPlatformAccounts = accounts.filter((a: any) => selectedAccounts.includes(a.id))
-    if (contentType === 'story') {
-      toast.error("Le type Story n'est pas encore pris en charge")
-      return
-    }
+    // if (contentType === 'story') {
+    //   toast.error("Le type Story n'est pas encore pris en charge")
+    //   return
+    // }
     if (contentType === 'reel' && selectedPlatformAccounts.some((a: any) => a.platform !== 'instagram')) {
       toast.error('Le type Reel est pris en charge uniquement pour Instagram')
       return
