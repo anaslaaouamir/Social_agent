@@ -292,8 +292,6 @@ class SocialPublisherService:
             )
 
         try:
-            if normalized_platform == "facebook":
-                return await publisher(full_caption, media_urls, normalized_content_type)
             return await publisher(full_caption, media_urls, normalized_content_type, source_post_id)
         except Exception as e:
             logger.error(f"Publish to {platform} failed: {e}")
@@ -596,7 +594,13 @@ class SocialPublisherService:
             logger.warning(f"LinkedIn publish error: {e}")
             return self._failed_result("linkedin", str(e))
 
-    async def _publish_facebook(self, caption: str, media_urls: list[str], content_type: str) -> PublishResult:
+    async def _publish_facebook(
+        self,
+        caption: str,
+        media_urls: list[str],
+        content_type: str,
+        source_post_id: str | None = None,
+    ) -> PublishResult:
         """Publish to Facebook Page via Graph API."""
         token = self.tokens["facebook"]
         page_id = self.facebook_page_id
@@ -605,6 +609,49 @@ class SocialPublisherService:
 
         try:
             if media_urls:
+                if content_type == "video":
+                    prepared_url = await self._prepare_non_facebook_media_url(
+                        "facebook",
+                        media_urls[0],
+                        post_id=source_post_id,
+                        media_index=0,
+                    )
+                    payload = {
+                        "file_url": prepared_url,
+                        "description": caption[:63206],
+                        "access_token": token,
+                    }
+                    resp = await self._client.post(
+                        f"https://graph-video.facebook.com/v19.0/{page_id}/videos",
+                        data=payload,
+                    )
+                    resp.raise_for_status()
+                    video_id = resp.json()["id"]
+                    
+                    import asyncio
+                    for _ in range(30):
+                        status_resp = await self._client.get(
+                            f"https://graph.facebook.com/v19.0/{video_id}",
+                            params={"fields": "status", "access_token": token}
+                        )
+                        status_resp.raise_for_status()
+                        status_data = status_resp.json().get("status", {})
+                        video_status = status_data.get("video_status")
+                        if video_status in ("ready", "published"):
+                            break
+                        if video_status == "error":
+                            raise ValueError("Facebook server failed to process the video.")
+                        await asyncio.sleep(5)
+                        
+                    return PublishResult(
+                        platform="facebook",
+                        status=PublishStatus.SUCCESS,
+                        platform_post_id=video_id,
+                        published_at=time.time(),
+                        error_message=None,
+                        retry_after=None,
+                    )
+                
                 media_url = media_urls[0]
                 if self._is_public_http_url(media_url):
                     payload = {

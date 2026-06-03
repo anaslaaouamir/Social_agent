@@ -181,11 +181,7 @@ export default function CreatePostPage() {
       return
     }
 
-    const hasInvalidRemoteMedia = mediaUrls.some((url) => !isSupportedFacebookMedia(url))
-    if (hasInvalidRemoteMedia && selectedPlatformAccounts.some((a: any) => a.platform === 'facebook')) {
-      toast.error("Facebook exige des URLs d'image publiques http(s)")
-      return
-    }
+    
 
     setSubmitting(true)
     try {

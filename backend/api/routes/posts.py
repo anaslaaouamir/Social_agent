@@ -67,15 +67,15 @@ def _validate_media_urls_for_platform(platform: str, media_urls: list[str]) -> N
     if not media_urls:
         return
 
-    if platform == "facebook":
-        invalid = [url for url in media_urls if not (_is_public_http_url(url) or _is_data_image_url(url))]
-        if not invalid:
-            return
-        raise HTTPException(
-            400,
-            "Facebook media posts require either a public http(s) URL or a base64 data:image URL from the media library. Blob URLs and local file paths are not supported.",
-        )
-        return
+    # if platform == "facebook":
+    #     invalid = [url for url in media_urls if not (_is_public_http_url(url) or _is_data_image_url(url))]
+    #     if not invalid:
+    #         return
+    #     raise HTTPException(
+    #         400,
+    #         "Facebook media posts require either a public http(s) URL or a base64 data:image URL from the media library. Blob URLs and local file paths are not supported.",
+    #     )
+    #     return
 
     invalid = [url for url in media_urls if not (_is_public_http_url(url) or _is_data_media_url(url))]
     if invalid:
