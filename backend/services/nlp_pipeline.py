@@ -259,6 +259,9 @@ class NLPPipeline:
 
         try:
             results = model(text[:512])[0]
+            # --- ADD THIS LINE TO CHECK THE MODEL'S OUTPUT ---
+            import logging
+            logging.getLogger(__name__).warning(f"RAW TOXIC AI OUTPUT for '{text[:20]}': {results}")
             toxic_score = next(
                 (
                     item["score"]

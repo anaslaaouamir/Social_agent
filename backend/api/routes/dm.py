@@ -25,6 +25,8 @@ from services.social_activity_store import ensure_negative_dm_alert, persist_liv
 from services.social_account_tokens import resolve_account_access_token, resolve_account_access_tokens
 from services.twitter_graph import TwitterGraphService
 
+from models.domain import Platform, SocialAccount, User, DirectMessage
+
 router = APIRouter()
 settings = get_settings()
 
@@ -564,6 +566,28 @@ async def get_live_inbox(
                 item["is_toxic"] = stored.intent == "toxic"
                 item["is_spam"] = stored.intent == "spam"
                 item["sentiment_score"] = stored.sentiment_score
+
+                        # --- SYNC OLDER MESSAGES FROM DATABASE ---
+            past_dms_result = await db.execute(
+                select(DirectMessage.message, DirectMessage.intent)
+                .where(
+                    DirectMessage.account_id == item["account_id"],
+                    DirectMessage.intent != "pending"
+                )
+            )
+            # Make it 100% case-insensitive to guarantee it catches "Arnaque !"
+            intent_map = {str(row[0]).strip().lower(): str(row[1]) for row in past_dms_result.all() if row[0] and row[1]}
+            
+            for msg in item.get("messages") or []:
+                msg_text = str(msg.get("text") or "").strip().lower()
+                if msg_text and msg_text in intent_map:
+                    msg["label"] = intent_map[msg_text]
+                    msg["is_toxic"] = intent_map[msg_text] == "toxic"
+                    msg["is_spam"] = intent_map[msg_text] == "spam"
+                else:
+                    # If the message was never analyzed (not in DB), don't show 'pending'
+                    if msg.get("label") == "pending":
+                        msg["label"] = "neutral"
                 
             if item.get("label") in {"negative", "toxic"} or item.get("is_toxic"):
                 await ensure_negative_dm_alert(db, item=item)

@@ -118,8 +118,11 @@ def monitor_account(account_id: str):
 
                 session.commit()
 
-            # --- NEW DM PROCESSING BLOCK ---
-            from models.domain import DirectMessage
+                        # --- NEW DM PROCESSING BLOCK ---
+            try:
+                from models.domain import DirectMessage
+            except ModuleNotFoundError:
+                from backend.models.domain import DirectMessage
             dms = session.execute(
                 select(DirectMessage).where(
                     DirectMessage.account_id == uuid.UUID(account_id),
