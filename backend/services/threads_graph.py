@@ -73,3 +73,18 @@ class ThreadsGraphService:
 
     async def close(self) -> None:
         await self.client.aclose()
+
+
+
+    async def get_media_insights(self, media_id: str) -> dict:
+        """Fetch insights for a specific Threads post."""
+        data = await self._get(
+            f"/{media_id}/insights",
+            {"metric": "views,likes,replies,reposts,quotes"}
+        )
+        insights = {}
+        for item in data.get("data", []):
+            vals = item.get("values", [])
+            if vals and len(vals) > 0:
+                insights[item["name"]] = vals[0].get("value", 0)
+        return insights

@@ -17,6 +17,8 @@ from core.database import get_db
 from models.domain import Platform, SocialAccount, User
 from services.threads_graph import ThreadsGraphService
 
+from models.domain import Platform, SocialAccount, User, Post, AccountMetric
+
 router = APIRouter()
 public_router = APIRouter()
 settings = get_settings()
@@ -30,7 +32,7 @@ THREADS_AUTH_URL = "https://threads.net/oauth/authorize"
 THREADS_TOKEN_URL = "https://graph.threads.net/oauth/access_token"
 THREADS_LONG_LIVED_TOKEN_URL = "https://graph.threads.net/access_token"
 THREADS_REFRESH_TOKEN_URL = "https://graph.threads.net/refresh_access_token"
-THREADS_SCOPES = "threads_basic,threads_content_publish"
+THREADS_SCOPES = "threads_basic,threads_content_publish,threads_manage_insights"
 
 
 async def _upsert_social_account(
@@ -41,6 +43,7 @@ async def _upsert_social_account(
     account_name: str,
     access_token: str,
     expires_in: int | None = None,
+    followers_count: int = 0,
     metadata_: dict | None = None,
 ) -> SocialAccount:
     result = await db.execute(
@@ -62,7 +65,7 @@ async def _upsert_social_account(
             access_token=access_token,
             refresh_token="",
             token_expires_at=token_expires_at,
-            followers_count=0,
+            followers_count=followers_count,
             metadata_=metadata_ or {},
         )
         db.add(account)
@@ -71,6 +74,7 @@ async def _upsert_social_account(
     account.user_id = user_id
     account.account_name = account_name
     account.access_token = access_token
+    account.followers_count = followers_count
     account.token_expires_at = token_expires_at or account.token_expires_at
     if metadata_:
         account.metadata_ = {**(account.metadata_ or {}), **metadata_}
@@ -163,13 +167,23 @@ async def threads_callback(
     svc = ThreadsGraphService(access_token)
     try:
         profile = await svc.get_profile()
+        account_id = str(profile.get("id") or "")
+        
+        followers_count = 0
+        try:
+            insights_data = await svc._get(f"/{account_id}/threads_insights", {"metric": "followers_count"})
+            for item in insights_data.get("data", []):
+                if item.get("name") == "followers_count":
+                    followers_count = item.get("total_value", {}).get("value", 0)
+        except Exception:
+            pass
+
     except Exception as exc:
         params = {"error": str(exc), "platform": "threads"}
         return RedirectResponse(url=f"{FRONTEND_URL}/accounts?{urlencode(params)}")
     finally:
         await svc.close()
 
-    account_id = str(profile.get("id") or "")
     username = str(profile.get("username") or account_id).strip()
     account_name = username if username.startswith("@") else f"@{username}"
 
@@ -179,6 +193,7 @@ async def threads_callback(
         account_id=account_id,
         account_name=account_name,
         access_token=access_token,
+        followers_count=followers_count,
         expires_in=int(expires_in) if expires_in else None,
         metadata_={
             "threads_username": username.lstrip("@"),
@@ -230,3 +245,96 @@ async def refresh_threads_token(
         account.token_expires_at = time.time() + int(expires_in)
     await db.flush()
     return {"status": "ok"}
+
+
+@router.post("/threads/sync/{account_id}")
+async def sync_threads_data(
+    account_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Synchronise les vrais posts (threads) et métriques 
+    depuis l'API Threads pour calculer l'engagement.
+    """
+    result = await db.execute(
+        select(SocialAccount).where(
+            SocialAccount.id == uuid.UUID(account_id),
+            SocialAccount.user_id == current_user.id,
+            SocialAccount.platform == Platform.THREADS,
+        )
+    )
+    account = result.scalar_one_or_none()
+    if not account:
+        raise HTTPException(404, "Threads account not found")
+
+    svc = ThreadsGraphService(account.access_token)
+    synced_posts = 0
+
+    try:
+        # Fetch follower count using the exact Threads Insights API you tested
+        insights_data = await svc._get(f"/{account.account_id}/threads_insights", {"metric": "followers_count"})
+        for item in insights_data.get("data", []):
+            if item.get("name") == "followers_count":
+                account.followers_count = item.get("total_value", {}).get("value", account.followers_count)
+
+        # Fetch live threads
+        threads = await svc.get_threads(account.account_id)
+        
+        for t in threads:
+            # Fetch insights for each specific post to get likes/replies
+            media_id = t["id"]
+            try:
+                post_insights = await svc.get_media_insights(media_id)
+            except Exception:
+                post_insights = {}
+
+            likes = post_insights.get("likes", 0)
+            replies = post_insights.get("replies", 0)
+            reposts = post_insights.get("reposts", 0)
+            quotes = post_insights.get("quotes", 0)
+            
+            total_eng = likes + replies + reposts + quotes
+            
+            post = Post(
+                id=uuid.uuid4(),
+                account_id=account.id,
+                platform_post_id=media_id,
+                caption=t.get("text", "")[:2000],
+                status="published",
+                content_type=str(t.get("media_type", "TEXT")).lower(),
+                likes_count=likes,
+                comments_count=replies,
+                shares_count=reposts + quotes,
+                reach=post_insights.get("views", 0),
+                engagement_rate=round(total_eng / max(account.followers_count, 1) * 100, 2),
+                published_at=t.get("timestamp"),
+            )
+            db.add(post)
+            synced_posts += 1
+
+        # Record a snapshot of the account's metrics
+        metric_record = AccountMetric(
+            id=uuid.uuid4(),
+            account_id=account.id,
+            followers_count=account.followers_count,
+            reach=0,
+            impressions=0,
+            engagement_rate=0,
+        )
+        db.add(metric_record)
+
+        await db.flush()
+    finally:
+        await svc.close()
+
+    return {
+        "status": "ok",
+        "synced_posts": synced_posts,
+        "account": {
+            "id": str(account.id),
+            "name": account.account_name,
+            "platform": account.platform.value,
+            "followers": account.followers_count,
+        },
+    }

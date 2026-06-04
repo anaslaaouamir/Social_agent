@@ -426,26 +426,33 @@ async def _fetch_live_posts_for_account(account: SocialAccount, limit: int = 20)
         svc = ThreadsGraphService(account.access_token)
         try:
             threads = await svc.get_threads(account.account_id, limit=limit)
+            
+            results = []
+            for item in threads:
+                media_id = item.get("id")
+                try:
+                    insights = await svc.get_media_insights(media_id)
+                except Exception:
+                    insights = {}
+                    
+                results.append({
+                    "id": media_id,
+                    "account_id": str(account.id),
+                    "platform": account.platform.value,
+                    "account_name": account.account_name,
+                    "text": item.get("text", ""),
+                    "timestamp": item.get("timestamp"),
+                    "published_at": _parse_datetime_to_ts(item.get("timestamp")),
+                    "likes": insights.get("likes", 0),
+                    "comments_count": insights.get("replies", 0),
+                    "shares_count": insights.get("reposts", 0) + insights.get("quotes", 0),
+                    "media_url": item.get("media_url"),
+                    "media_type": str(item.get("media_type") or "").lower() or None,
+                    "permalink": item.get("permalink"),
+                })
+            return results
         finally:
             await svc.close()
-        return [
-            {
-                "id": item.get("id"),
-                "account_id": str(account.id),
-                "platform": account.platform.value,
-                "account_name": account.account_name,
-                "text": item.get("text", ""),
-                "timestamp": item.get("timestamp"),
-                "published_at": _parse_datetime_to_ts(item.get("timestamp")),
-                "likes": item.get("like_count", 0),
-                "comments_count": item.get("reply_count", 0),
-                "shares_count": item.get("repost_count", 0),
-                "media_url": item.get("media_url"),
-                "media_type": str(item.get("media_type") or "").lower() or None,
-                "permalink": item.get("permalink"),
-            }
-            for item in threads
-        ]
 
     if account.platform == Platform.YOUTUBE:
         svc = YouTubeGraphService(account.access_token)
