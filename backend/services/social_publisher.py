@@ -609,6 +609,95 @@ class SocialPublisherService:
 
         try:
             if media_urls:
+                if content_type == "story":
+                    prepared_url = await self._prepare_non_facebook_media_url(
+                        "facebook",
+                        media_urls[0],
+                        post_id=source_post_id,
+                        media_index=0,
+                    )
+                    
+                    try:
+                        # 1. Try Image Story First
+                        resp = await self._client.post(
+                            f"https://graph.facebook.com/v19.0/{page_id}/photos",
+                            data={"url": prepared_url, "published": "false", "access_token": token},
+                        )
+                        resp.raise_for_status()
+                        photo_id = resp.json()["id"]
+                        
+                        pub_resp = await self._client.post(
+                            f"https://graph.facebook.com/v19.0/{page_id}/photo_stories",
+                            data={"photo_id": photo_id, "access_token": token},
+                        )
+                        pub_resp.raise_for_status()
+                        story_id = pub_resp.json()["id"]
+                        is_video = False
+                        
+                    except httpx.HTTPStatusError as e:
+                        # 2. Fallback to Video Story if Image fails
+                        if "format" in e.response.text.lower() or "video" in e.response.text.lower() or "error" in e.response.text.lower():
+                            start_resp = await self._client.post(
+                                f"https://graph.facebook.com/v19.0/{page_id}/video_stories",
+                                data={"upload_phase": "start", "access_token": token}
+                            )
+                            start_resp.raise_for_status()
+                            video_id = start_resp.json()["video_id"]
+                            
+                                                        # 1. Have our backend download the video bytes first
+                            video_resp = await self._client.get(prepared_url, timeout=120.0)
+                            video_resp.raise_for_status()
+                            video_bytes = video_resp.content
+                            
+                            # 2. Upload the raw bytes directly to Facebook
+                            up_resp = await self._client.post(
+                                f"https://rupload.facebook.com/video-upload/v19.0/{video_id}",
+                                headers={
+                                    "Authorization": f"OAuth {token}",
+                                    "offset": "0",
+                                    "file_size": str(len(video_bytes))
+                                },
+                                content=video_bytes,
+                                timeout=300.0
+                            )
+                            up_resp.raise_for_status()
+                            
+                            fin_resp = await self._client.post(
+                                f"https://graph.facebook.com/v19.0/{page_id}/video_stories",
+                                data={"video_id": video_id, "upload_phase": "finish", "access_token": token}
+                            )
+                            fin_resp.raise_for_status()
+                            story_id = video_id
+                            is_video = True
+                        else:
+                            raise
+                    
+                    # 3. Polling to ensure the video processes successfully
+                    if is_video:
+                        import asyncio
+                        for _ in range(30):
+                            status_resp = await self._client.get(
+                                f"https://graph.facebook.com/v19.0/{story_id}",
+                                params={"fields": "status", "access_token": token}
+                            )
+                            status_resp.raise_for_status()
+                            status_data = status_resp.json().get("status", {})
+                            video_status = status_data.get("video_status")
+                            if video_status in ("ready", "published"):
+                                break
+                            if video_status == "error":
+                                raise ValueError("Facebook server failed to process the story video.")
+                            await asyncio.sleep(5)
+                            
+                    return PublishResult(
+                        platform="facebook",
+                        status=PublishStatus.SUCCESS,
+                        platform_post_id=story_id,
+                        published_at=time.time(),
+                        error_message=None,
+                        retry_after=None,
+                    )
+
                 if content_type == "video":
                     prepared_url = await self._prepare_non_facebook_media_url(
                         "facebook",
