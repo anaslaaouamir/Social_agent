@@ -606,6 +606,29 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
             for item in comments
         ]
 
+    if account.platform == Platform.THREADS:
+        svc = ThreadsGraphService(account.access_token)
+        try:
+            replies = await svc.get_replies(platform_post_id)
+        finally:
+            await svc.close()
+        return [
+            {
+                "id": item.get("id"),
+                "author": item.get("username", "Threads user"),
+                "text": item.get("text", ""),
+                "timestamp": item.get("timestamp"),
+                "likes": 0,
+                "platform": account.platform.value,
+                "can_reply": True,
+                "reply_mode": "comment",
+                "reply_target_id": item.get("id"),
+                "reply_parent_id": platform_post_id,
+                "reply_action_label": "Repondre au commentaire",
+            }
+            for item in replies
+        ]
+
     return []
 
 

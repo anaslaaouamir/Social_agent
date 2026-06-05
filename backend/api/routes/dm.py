@@ -18,6 +18,7 @@ from models.domain import Platform, SocialAccount, User
 from services.facebook_graph import FacebookGraphService
 from services.instagram_graph import InstagramService
 from services.linkedIn_graph import LinkedInGraphService
+from services.threads_graph import ThreadsGraphService
 from services.nlp_pipeline import nlp_pipeline
 from services.rag_service import get_rag_service
 from services.llm_orchestrator import LLMRequest, get_llm_orchestrator
@@ -479,6 +480,19 @@ async def _send_unified_reply(account: SocialAccount, payload: dict) -> dict:
         try:
             response = await svc.create_reply_tweet(target_id, message)
             return {"status": "sent", "mode": "post_reply", "result": response}
+        finally:
+            await svc.close()
+
+    if account.platform == Platform.THREADS:
+        if reply_mode != "comment":
+            raise HTTPException(400, "Threads replies are currently supported only as comments")
+        target_id = reply_target_id or reply_parent_id
+        if not target_id:
+            raise HTTPException(400, "reply_target_id is required for Threads replies")
+        svc = ThreadsGraphService(account.access_token)
+        try:
+            response = await svc.reply_to_comment(account.account_id, target_id, message)
+            return {"status": "sent", "mode": "comment", "result": response}
         finally:
             await svc.close()
 

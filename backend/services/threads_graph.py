@@ -69,6 +69,19 @@ class ThreadsGraphService:
         if not creation_id:
             raise ValueError("Threads media container did not return an id")
 
+        # For videos, we must wait for Meta to finish processing before publishing
+        if media_type == "VIDEO":
+            import asyncio
+            for _ in range(12):
+                await asyncio.sleep(5)
+                status_resp = await self._get(f"/{creation_id}", {"fields": "status,error_message"})
+                status = status_resp.get("status")
+                if status == "FINISHED":
+                    break
+                if status == "ERROR":
+                    error_msg = status_resp.get("error_message", "Unknown video processing error")
+                    raise ValueError(f"Threads video processing failed: {error_msg}")
+
         return await self._post(f"/{user_id}/threads_publish", {"creation_id": creation_id})
 
     async def close(self) -> None:
@@ -88,3 +101,23 @@ class ThreadsGraphService:
             if vals and len(vals) > 0:
                 insights[item["name"]] = vals[0].get("value", 0)
         return insights
+
+    async def get_replies(self, media_id: str) -> list[dict]:
+        """Fetch replies (comments) for a specific Threads post."""
+        data = await self._get(
+            f"/{media_id}/replies",
+            {"fields": "id,text,timestamp,username"}
+        )
+        return data.get("data", [])
+
+    async def reply_to_comment(self, user_id: str, reply_to_id: str, text: str) -> dict:
+        """Reply to a specific Threads comment or post."""
+        container = await self._post(f"/{user_id}/threads", {
+            "media_type": "TEXT",
+            "text": text,
+            "reply_to_id": reply_to_id
+        })
+        creation_id = container.get("id")
+        if not creation_id:
+            raise ValueError("Threads media container did not return an id")
+        return await self._post(f"/{user_id}/threads_publish", {"creation_id": creation_id})
