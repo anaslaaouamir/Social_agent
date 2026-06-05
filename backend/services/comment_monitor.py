@@ -70,7 +70,7 @@ def monitor_account(account_id: str):
                 select(Post).where(
                     Post.account_id == uuid.UUID(account_id),
                     Post.status == PostStatus.PUBLISHED,
-                ).order_by(Post.published_at.desc()).limit(5)
+                ).order_by(Post.published_at.desc()).limit(20)
             ).scalars().all()
 
             all_analyses = []

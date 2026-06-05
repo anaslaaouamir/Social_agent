@@ -491,8 +491,10 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
             comments = await svc.get_comments(platform_post_id)
         finally:
             await svc.close()
-        return [
-            {
+        
+        all_comments = []
+        for item in comments:
+            all_comments.append({
                 "id": item.get("id"),
                 "author": item.get("username", "Instagram user"),
                 "text": item.get("text", ""),
@@ -504,9 +506,27 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
                 "reply_target_id": item.get("id"),
                 "reply_parent_id": platform_post_id,
                 "reply_action_label": "Repondre au commentaire",
-            }
-            for item in comments
-        ]
+                "is_reply": False,
+            })
+            
+            replies_data = item.get("replies", {}).get("data", [])
+            for reply in replies_data:
+                all_comments.append({
+                    "id": reply.get("id"),
+                    "author": reply.get("username", "Instagram user"),
+                    "text": reply.get("text", ""),
+                    "timestamp": reply.get("timestamp"),
+                    "likes": reply.get("like_count", 0),
+                    "platform": account.platform.value,
+                    "can_reply": True,
+                    "reply_mode": "comment",
+                    "reply_target_id": reply.get("id"),
+                    "reply_parent_id": platform_post_id,
+                    "reply_action_label": "Repondre au commentaire",
+                    "is_reply": True,
+                    "parent_comment_id": item.get("id"),
+                })
+        return all_comments
 
     if account.platform == Platform.FACEBOOK:
         import httpx
@@ -515,15 +535,17 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
                 f"https://graph.facebook.com/v20.0/{platform_post_id}/comments",
                 params={
                     "access_token": account.access_token,
-                    "fields": "id,message,from,created_time,like_count",
+                    "fields": "id,message,from,created_time,like_count,comments{id,message,from,created_time,like_count}",
                     "summary": "true",
                 },
             )
         data = resp.json()
         if "error" in data:
             raise HTTPException(400, f"Facebook API error: {data['error']['message']}")
-        return [
-            {
+            
+        all_comments = []
+        for item in data.get("data", []):
+            all_comments.append({
                 "id": item.get("id"),
                 "author": (item.get("from") or {}).get("name", "Facebook user"),
                 "text": item.get("message", ""),
@@ -535,9 +557,27 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
                 "reply_target_id": item.get("id"),
                 "reply_parent_id": platform_post_id,
                 "reply_action_label": "Repondre au commentaire",
-            }
-            for item in data.get("data", [])
-        ]
+                "is_reply": False,
+            })
+            
+            replies_data = item.get("comments", {}).get("data", [])
+            for reply in replies_data:
+                all_comments.append({
+                    "id": reply.get("id"),
+                    "author": (reply.get("from") or {}).get("name", "Facebook user"),
+                    "text": reply.get("message", ""),
+                    "timestamp": reply.get("created_time"),
+                    "likes": reply.get("like_count", 0),
+                    "platform": account.platform.value,
+                    "can_reply": True,
+                    "reply_mode": "comment",
+                    "reply_target_id": reply.get("id"),
+                    "reply_parent_id": platform_post_id,
+                    "reply_action_label": "Repondre au commentaire",
+                    "is_reply": True,
+                    "parent_comment_id": item.get("id"),
+                })
+        return all_comments
 
     if account.platform == Platform.LINKEDIN:
         svc = LinkedInGraphService(account.access_token)
@@ -558,6 +598,7 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
                 "reply_target_id": item.get("id"),
                 "reply_parent_id": platform_post_id,
                 "reply_action_label": "Commenter sur le post",
+                "is_reply": False,
             }
             for item in comments
         ]
@@ -602,6 +643,7 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
                 "reply_target_id": item.get("id"),
                 "reply_parent_id": platform_post_id,
                 "reply_action_label": "Repondre au commentaire",
+                "is_reply": False,
             }
             for item in comments
         ]
@@ -612,8 +654,10 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
             replies = await svc.get_replies(platform_post_id)
         finally:
             await svc.close()
-        return [
-            {
+        
+        all_comments = []
+        for item in replies:
+            all_comments.append({
                 "id": item.get("id"),
                 "author": item.get("username", "Threads user"),
                 "text": item.get("text", ""),
@@ -625,9 +669,27 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
                 "reply_target_id": item.get("id"),
                 "reply_parent_id": platform_post_id,
                 "reply_action_label": "Repondre au commentaire",
-            }
-            for item in replies
-        ]
+                "is_reply": False,
+            })
+            
+            replies_data = item.get("replies", {}).get("data", [])
+            for reply in replies_data:
+                all_comments.append({
+                    "id": reply.get("id"),
+                    "author": reply.get("username", "Threads user"),
+                    "text": reply.get("text", ""),
+                    "timestamp": reply.get("timestamp"),
+                    "likes": 0,
+                    "platform": account.platform.value,
+                    "can_reply": True,
+                    "reply_mode": "comment",
+                    "reply_target_id": reply.get("id"),
+                    "reply_parent_id": platform_post_id,
+                    "reply_action_label": "Repondre au commentaire",
+                    "is_reply": True,
+                    "parent_comment_id": item.get("id"),
+                })
+        return all_comments
 
     return []
 

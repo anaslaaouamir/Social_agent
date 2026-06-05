@@ -79,6 +79,8 @@ interface PostComment {
   replyActionLabel?: string
   autoReplied?: boolean
   requiresHuman?: boolean
+  isReply?: boolean;
+  parentCommentId?: string
 }
 
 interface Post {
@@ -606,6 +608,8 @@ export default function InboxPage() {
         replyActionLabel: item.reply_action_label || 'Repondre au commentaire',
         autoReplied: getAutoRepliedIds().has(`comment:${item.platform}:${String(item.id)}`),
         requiresHuman: getHumanRequiredIds().has(`comment:${item.platform}:${String(item.id)}`),
+        isReply: !!item.is_reply,
+        parentCommentId: item.parent_comment_id || undefined,
       }))
       const items = await applyCommentAutoReplies(rawItems)
       setComments(items)
@@ -1329,50 +1333,67 @@ export default function InboxPage() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {loadingComments ? <Spinner /> : filteredComments.map(comment => (
-                    <div key={comment.id} style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--bg-1)', border: '1px solid var(--border)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontWeight: 600, fontSize: 13 }}>{comment.author}</span>
-                          {comment.label && <LabelBadge label={comment.label} type={comment.label} />}
-                          {comment.autoReplied && <LabelBadge label="Auto-repondu" type="positive" />}
-                          {comment.requiresHuman && <LabelBadge label="Humain requis" type="human" />}
+                  {loadingComments ? <Spinner /> : (() => {
+                    const topLevel = filteredComments.filter(c => !c.isReply);
+                    const repliesByParent = filteredComments.filter(c => c.isReply).reduce((acc, reply) => {
+                      if (reply.parentCommentId) {
+                        acc[reply.parentCommentId] = acc[reply.parentCommentId] || [];
+                        acc[reply.parentCommentId].push(reply);
+                      }
+                      return acc;
+                    }, {} as Record<string, PostComment[]>);
+
+                    const renderCommentCard = (comment: PostComment, isReply: boolean = false) => (
+                      <div key={comment.id} style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--bg-1)', border: '1px solid var(--border)', marginLeft: isReply ? 32 : 0, position: 'relative' }}>
+                        {isReply && <div style={{ position: 'absolute', left: -20, top: 18, color: 'var(--text-3)', fontSize: 16 }}>↳</div>}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontWeight: 600, fontSize: 13 }}>{comment.author}</span>
+                            {comment.label && <LabelBadge label={comment.label} type={comment.label} />}
+                            {comment.autoReplied && <LabelBadge label="Auto-repondu" type="positive" />}
+                            {comment.requiresHuman && <LabelBadge label="Humain requis" type="human" />}
+                          </div>
+                          <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{comment.timestamp ? new Date(comment.timestamp).toLocaleString('fr-FR') : ''}</span>
                         </div>
-                        <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{comment.timestamp ? new Date(comment.timestamp).toLocaleString('fr-FR') : ''}</span>
-                      </div>
-                      <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.4 }}>{comment.text}</div>
-                      <div style={{ display: 'flex', gap: 10, marginTop: 8, fontSize: 11, color: 'var(--text-3)' }}>
-                        <span>{comment.platform}</span>
-                        <span>Score {(Math.abs(comment.sentimentScore || 0) * 100).toFixed(0)}%</span>
-                      </div>
-                      {comment.canReply && (
-                        <div style={{ marginTop: 10 }}>
-                          {replyingCommentId === comment.id ? (
-                            <>
-                              <textarea
-                                value={commentReplyText}
-                                onChange={e => setCommentReplyText(e.target.value)}
-                                placeholder="Votre reponse a ce commentaire..."
-                                style={{ minHeight: 72, resize: 'vertical', marginBottom: 8 }}
-                              />
-                              <div style={{ display: 'flex', gap: 8 }}>
-                                <Btn size="sm" disabled={!commentReplyText.trim() || sendingCommentReply} onClick={() => handleSendCommentReply(comment)}>
-                                  {sendingCommentReply ? 'Envoi...' : (comment.replyActionLabel || 'Repondre')}
-                                </Btn>
-                                <Btn size="sm" variant="ghost" onClick={() => { setReplyingCommentId(null); setCommentReplyText('') }}>
-                                  Annuler
-                                </Btn>
-                              </div>
-                            </>
-                          ) : (
-                            <Btn size="sm" variant="ghost" onClick={() => { setReplyingCommentId(comment.id); setCommentReplyText('') }}>
-                              {comment.replyActionLabel || 'Repondre'}
-                            </Btn>
-                          )}
+                        <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.4 }}>{comment.text}</div>
+                        <div style={{ display: 'flex', gap: 10, marginTop: 8, fontSize: 11, color: 'var(--text-3)' }}>
+                          <span>{comment.platform}</span>
+                          <span>Score {(Math.abs(comment.sentimentScore || 0) * 100).toFixed(0)}%</span>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        {comment.canReply && (
+                          <div style={{ marginTop: 10 }}>
+                            {replyingCommentId === comment.id ? (
+                              <>
+                                <textarea
+                                  value={commentReplyText}
+                                  onChange={e => setCommentReplyText(e.target.value)}
+                                  placeholder="Votre reponse a ce commentaire..."
+                                  style={{ minHeight: 72, resize: 'vertical', marginBottom: 8 }}
+                                />
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <Btn size="sm" disabled={!commentReplyText.trim() || sendingCommentReply} onClick={() => handleSendCommentReply(comment)}>
+                                    {sendingCommentReply ? 'Envoi...' : (comment.replyActionLabel || 'Repondre')}
+                                  </Btn>
+                                  <Btn size="sm" variant="ghost" onClick={() => { setReplyingCommentId(null); setCommentReplyText('') }}>
+                                    Annuler
+                                  </Btn>
+                                </div>
+                              </>
+                            ) : (
+                              <Btn size="sm" variant="ghost" onClick={() => { setReplyingCommentId(comment.id); setCommentReplyText('') }}>
+                                {comment.replyActionLabel || 'Repondre'}
+                              </Btn>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+
+                    return topLevel.flatMap(comment => [
+                      renderCommentCard(comment, false),
+                      ...(repliesByParent[comment.id] || []).map(reply => renderCommentCard(reply, true))
+                    ]);
+                  })()}
                 </div>
               </>
             )}

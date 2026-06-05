@@ -205,7 +205,7 @@ class InstagramService:
         """
         data = await self._get(
             f"{media_id}/comments",
-            fields="id,text,username,timestamp,like_count,replies{text,username,timestamp}",
+            fields="id,text,username,timestamp,like_count,replies{id,text,username,timestamp,like_count}",
         )
         return data.get("data", [])
 

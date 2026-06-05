@@ -108,7 +108,24 @@ class ThreadsGraphService:
             f"/{media_id}/replies",
             {"fields": "id,text,timestamp,username"}
         )
-        return data.get("data", [])
+        top_replies = data.get("data", [])
+        
+        if not top_replies:
+            return []
+            
+        import asyncio
+        async def fetch_nested(reply):
+            try:
+                nested_data = await self._get(
+                    f"/{reply['id']}/replies",
+                    {"fields": "id,text,timestamp,username"}
+                )
+                reply["replies"] = nested_data
+            except Exception:
+                pass
+
+        await asyncio.gather(*(fetch_nested(r) for r in top_replies))
+        return top_replies
 
     async def reply_to_comment(self, user_id: str, reply_to_id: str, text: str) -> dict:
         """Reply to a specific Threads comment or post."""
