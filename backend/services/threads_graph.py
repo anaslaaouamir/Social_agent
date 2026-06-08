@@ -72,7 +72,7 @@ class ThreadsGraphService:
         # For videos, we must wait for Meta to finish processing before publishing
         if media_type == "VIDEO":
             import asyncio
-            for _ in range(12):
+            for _ in range(60):
                 await asyncio.sleep(5)
                 status_resp = await self._get(f"/{creation_id}", {"fields": "status,error_message"})
                 status = status_resp.get("status")

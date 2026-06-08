@@ -409,7 +409,7 @@ class SocialPublisherService:
                     resp.raise_for_status()
                     is_video = False
                 except httpx.HTTPStatusError as e:
-                    if "format is not supported" in e.response.text or "video" in e.response.text.lower():
+                    if "format is not supported" in e.response.text or "video" in e.response.text.lower() or "timeout" in e.response.text.lower():
                         payload.pop("image_url")
                         payload["video_url"] = prepared_url
                         resp = await self._client.post(f"https://graph.facebook.com/v19.0/{account_id}/media", data=payload)
@@ -437,7 +437,7 @@ class SocialPublisherService:
             container_id = resp.json()["id"]
 
             # --- ADD THIS NEW POLLING LOGIC FOR VIDEOS ---
-            if content_type == "video" or (content_type == "story" and is_video):
+            if content_type == "video" or content_type == "story":
                 import asyncio
                 for _ in range(30):  # Wait up to 150 seconds for Instagram to process the video
                     status_resp = await self._client.get(
@@ -631,7 +631,7 @@ class SocialPublisherService:
                             data={"photo_id": photo_id, "access_token": token},
                         )
                         pub_resp.raise_for_status()
-                        story_id = pub_resp.json()["id"]
+                        story_id = pub_resp.json().get("id") or pub_resp.json().get("post_id")
                         is_video = False
                         
                     except httpx.HTTPStatusError as e:
@@ -713,6 +713,7 @@ class SocialPublisherService:
                     resp = await self._client.post(
                         f"https://graph-video.facebook.com/v19.0/{page_id}/videos",
                         data=payload,
+                        timeout=300.0,
                     )
                     resp.raise_for_status()
                     video_id = resp.json()["id"]
