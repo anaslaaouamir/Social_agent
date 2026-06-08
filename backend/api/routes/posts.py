@@ -801,20 +801,35 @@ async def list_live_posts(
     items: list[dict] = []
     errors: list[dict] = []
     for account in accounts:
+        # 1. First, try to fetch the posts. If fetching fails, skip to the next account.
         try:
             live_posts = await _fetch_live_posts_for_account(account, limit=limit)
-            for post in live_posts:
-                await _persist_live_post_dict(db, account, post)
-                items.append(_enrich_live_post(account, post))
         except Exception as exc:
             errors.append(
                 {
                     "account_id": str(account.id),
                     "platform": account.platform.value,
                     "account_name": account.account_name,
-                    "error": str(exc),
+                    "error": f"Fetch error: {str(exc)}",
                 }
             )
+            continue
+
+        # 2. Then, process each post INDIVIDUALLY.
+        for post in live_posts:
+            try:
+                await _persist_live_post_dict(db, account, post)
+                items.append(_enrich_live_post(account, post))
+            except Exception as exc:
+                # If ONE post fails, we catch the error here and just skip that single post!
+                errors.append(
+                    {
+                        "account_id": str(account.id),
+                        "platform": account.platform.value,
+                        "account_name": account.account_name,
+                        "error": f"Post parse error: {str(exc)}",
+                    }
+                )
 
     items.sort(key=lambda item: item.get("published_at") or 0, reverse=True)
     return {"items": items[: limit * max(len(accounts), 1)], "errors": errors}
