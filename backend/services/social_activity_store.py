@@ -123,9 +123,9 @@ async def persist_live_comment(
         stored.emotion = "anger" if is_toxic or label == "negative" else ("curiosity" if is_question else "neutral")
         stored.is_hidden = bool(is_spam or is_toxic)
         
-    stored.is_question = bool(is_question)
-    stored.is_lead = bool(is_lead)
-    stored.reply_priority = int(reply_priority or 0)
+        stored.is_question = bool(is_question)
+        stored.is_lead = bool(is_lead)
+        stored.reply_priority = int(reply_priority or 0)
     stored.nlp_entities = {
         "source": "live_platform",
         "label": label,
