@@ -12,6 +12,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from core.celery_app import celery_app
 from loguru import logger
 
+from services.social_api import hide_comment_on_platform
+from sqlalchemy.orm.attributes import flag_modified
 
 def _load_monitoring_models():
     try:
@@ -171,3 +173,52 @@ def monitor_account(account_id: str):
                     logger.warning(f"Crisis alert created for account {account_id}")
 
     asyncio.run(_run())
+
+
+@celery_app.task
+def sync_hidden_comments():
+    """Background task to ensure is_hidden=True comments are hidden on Facebook/IG."""
+    import asyncio
+    asyncio.run(_run_sync_hidden())
+
+async def _run_sync_hidden():
+    # --- Add these local imports ---
+    from sqlalchemy import create_engine, select
+    from sqlalchemy.orm import Session
+    from core.config import get_settings
+    SocialAccount, Post, PostStatus, Comment, Alert, AlertSeverity = _load_monitoring_models()
+    
+    settings = get_settings()
+    engine = create_engine(settings.sync_database_url)
+    # --------------------------------
+    
+    with Session(engine) as session:
+        # Fetch all comments that the NLP flagged as hidden
+        records = session.execute(
+            select(Comment, SocialAccount)
+            .join(Post, Comment.post_id == Post.id)
+            .join(SocialAccount, Post.account_id == SocialAccount.id)
+            .where(Comment.is_hidden == True)
+        ).all()
+
+        for comment, account in records:
+            # Check if we already successfully hid it in a previous run
+            entities = comment.nlp_entities or {}
+            if entities.get("platform_hidden") is True:
+                continue  # Skip, we already hid it!
+
+            # Try to hide it on the platform
+            success = await hide_comment_on_platform(
+                account.platform, 
+                comment.platform_comment_id, 
+                account.access_token
+            )
+
+            # If successful, mark it in the database so we never try again
+            if success:
+                entities["platform_hidden"] = True
+                comment.nlp_entities = entities
+                # We must tell SQLAlchemy the JSON dictionary was modified
+                from sqlalchemy.orm.attributes import flag_modified
+                flag_modified(comment, "nlp_entities")
+                session.commit()

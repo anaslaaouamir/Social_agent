@@ -98,5 +98,9 @@ celery_app.conf.update(
             "task": "services.nlp_pipeline.fit_topics_from_db",
             "schedule": crontab(minute=0, hour=3),
         },
+        'sync-hidden-comments-every-5-mins': {
+            'task': 'services.comment_monitor.sync_hidden_comments',
+            'schedule': crontab(minute='*/5'),
+    },
     },
 )
