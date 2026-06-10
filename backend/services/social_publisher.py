@@ -1,6 +1,6 @@
 """
 Social Publisher Service
-Handles auto-posting to Instagram, TikTok, LinkedIn, Facebook.
+Handles auto-posting to Instagram, TikTok, LinkedIn, Facebook, Pinterest.
 Implements retry logic, rate limiting, and platform-specific formatting.
 """
 from __future__ import annotations
@@ -71,6 +71,9 @@ class SocialPublisherService:
         threads_user_id: str = "",
         youtube_token: str = "",
         youtube_channel_id: str = "",
+        pinterest_token: str = "",
+        pinterest_user_id: str = "",
+        pinterest_board_id: str = "",
     ):
         self.tokens = {
             "instagram": instagram_token,
@@ -80,6 +83,7 @@ class SocialPublisherService:
             "twitter": twitter_token,
             "threads": threads_token,
             "youtube": youtube_token,
+            "pinterest": pinterest_token,
         }
         self.instagram_account_id = instagram_account_id
         self.linkedin_member_id = linkedin_member_id
@@ -87,6 +91,8 @@ class SocialPublisherService:
         self.twitter_user_id = twitter_user_id
         self.threads_user_id = threads_user_id
         self.youtube_channel_id = youtube_channel_id
+        self.pinterest_user_id = pinterest_user_id
+        self.pinterest_board_id = pinterest_board_id
         self._client = httpx.AsyncClient(timeout=30.0)
         self._settings = get_settings()
 
@@ -242,6 +248,7 @@ class SocialPublisherService:
             "twitter": self._publish_twitter,
             "threads": self._publish_threads,
             "youtube": self._publish_youtube,
+            "pinterest": self._publish_pinterest,
         }
 
         publisher = publishers.get(platform.lower())
@@ -452,49 +459,135 @@ class SocialPublisherService:
         content_type: str,
         source_post_id: str | None = None,
     ) -> PublishResult:
-        """Publish to TikTok via Content Posting API."""
+        """Publish to TikTok via Content Posting API v2 using PULL_FROM_URL with GitHub Pages hosting."""
         token = self.tokens["tiktok"]
         if not token:
-            return self._mock_publish("tiktok")
+            return self._auth_error("tiktok", "TikTok access token is missing")
 
+        if not media_urls:
+            return self._failed_result("tiktok", "No media provided for TikTok publishing")
+
+        raw_url = media_urls[0]
+
+        # --- Step 0: Get video bytes ---
         try:
-            # TikTok Content Posting API v2
-            prepared_url = ""
-            if media_urls:
-                prepared_url = await self._prepare_non_facebook_media_url(
+            if raw_url.startswith("data:"):
+                parsed = self._parse_data_url(raw_url)
+                if not parsed:
+                    return self._failed_result("tiktok", "Could not parse base64 data URL")
+                _mime, video_bytes = parsed
+            elif self._is_public_http_url(raw_url):
+                dl = await self._client.get(raw_url, follow_redirects=True)
+                dl.raise_for_status()
+                video_bytes = dl.content
+            else:
+                return self._failed_result(
                     "tiktok",
-                    media_urls[0],
-                    post_id=source_post_id,
-                    media_index=0,
+                    "TikTok requires a public URL or a base64 data URL for the video",
                 )
-            resp = await self._client.post(
-                "https://open.tiktokapis.com/v2/post/publish/video/init/",
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        except Exception as e:
+            return self._failed_result("tiktok", f"Failed to download/read video: {e}")
+
+        video_size = len(video_bytes)
+        logger.info(f"TikTok: video ready for upload, size={video_size} bytes")
+
+        # --- Step 1: Upload video to GitHub Pages to get a public URL ---
+        try:
+            github_token = getattr(self._settings, "github_token", "") or ""
+            github_repo = getattr(self._settings, "github_video_repo", "") or ""
+            if not github_token or not github_repo:
+                return self._failed_result("tiktok", "GitHub token or repo not configured in .env")
+
+            import uuid
+            filename = f"video_{uuid.uuid4().hex[:8]}.mp4"
+
+            github_headers = {
+                "Authorization": f"token {github_token}",
+                "Accept": "application/vnd.github.v3+json",
+            }
+            content_b64 = base64.b64encode(video_bytes).decode("utf-8")
+
+            resp = await self._client.put(
+                f"https://api.github.com/repos/{github_repo}/contents/{filename}",
+                headers=github_headers,
                 json={
-                    "post_info": {
-                        "title": caption[:150],
-                        "disable_comment": False,
-                        "privacy_level": "PUBLIC_TO_EVERYONE",
-                    },
-                    "source_info": {
-                        "source": "PULL_FROM_URL",
-                        "video_url": prepared_url,
-                    },
+                    "message": f"Upload {filename} for TikTok publishing",
+                    "content": content_b64,
                 },
             )
             resp.raise_for_status()
+
+            public_url = f"https://wissaltok.mooo.com/{filename}"
+            logger.info(f"TikTok: video uploaded to GitHub Pages: {public_url}")
+
+            # Wait for GitHub Pages to process the new file
+            await asyncio.sleep(5)
+
+        except Exception as e:
+            logger.error(f"TikTok: GitHub upload failed: {e}")
+            return self._failed_result("tiktok", f"Failed to upload video to hosting: {e}")
+
+        # --- Step 2: Publish to TikTok via PULL_FROM_URL ---
+        try:
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+            init_payload = {
+                "post_info": {
+                    "title": caption[:150],
+                    "disable_comment": False,
+                    "disable_duet": False,
+                    "disable_stitch": False,
+                    "privacy_level": "SELF_ONLY",
+                },
+                "source_info": {
+                    "source": "PULL_FROM_URL",
+                    "video_url": public_url,
+                },
+            }
+            resp = await self._client.post(
+                "https://open.tiktokapis.com/v2/post/publish/video/init/",
+                headers=headers,
+                json=init_payload,
+            )
+            resp.raise_for_status()
             data = resp.json()
+
+            publish_id = data.get("data", {}).get("publish_id")
+            logger.info(f"TikTok: publish initiated, publish_id={publish_id}")
+
+            # --- Step 3: Check publish status ---
+            if publish_id:
+                await asyncio.sleep(5)
+                try:
+                    status_resp = await self._client.post(
+                        "https://open.tiktokapis.com/v2/post/publish/status/fetch/",
+                        headers=headers,
+                        json={"publish_id": publish_id},
+                    )
+                    status_resp.raise_for_status()
+                    status_data = status_resp.json()
+                    logger.info(f"TikTok: publish status={status_data}")
+                except Exception as e:
+                    logger.warning(f"TikTok: status check failed (may still be processing): {e}")
+
             return PublishResult(
                 platform="tiktok",
                 status=PublishStatus.SUCCESS,
-                platform_post_id=data.get("data", {}).get("publish_id"),
+                platform_post_id=publish_id,
                 published_at=time.time(),
                 error_message=None,
                 retry_after=None,
             )
+        except httpx.HTTPStatusError as e:
+            detail = e.response.text
+            logger.error(f"TikTok publish failed ({e.response.status_code}): {detail}")
+            return self._failed_result("tiktok", f"TikTok publish error {e.response.status_code}: {detail}")
         except Exception as e:
-            logger.warning(f"TikTok publish error: {e}")
-            return self._mock_publish("tiktok")
+            logger.error(f"TikTok publish failed: {e}")
+            return self._failed_result("tiktok", f"TikTok publish error: {e}")
+
 
     async def _publish_linkedin(
         self,
@@ -775,6 +868,120 @@ class SocialPublisherService:
         except Exception as e:
             logger.warning(f"YouTube publish error: {e}")
             return self._failed_result("youtube", str(e))
+
+    # ======================== PINTEREST ========================
+
+    async def _publish_pinterest(
+        self,
+        caption: str,
+        media_urls: list[str],
+        content_type: str,
+        source_post_id: str | None = None,
+    ) -> PublishResult:
+        """Publish a Pin to Pinterest via API v5."""
+        token = (self.tokens.get("pinterest") or "").strip()
+        if not token:
+            return self._failed_result("pinterest", "Pinterest access token is missing")
+
+        if not media_urls:
+            return self._failed_result("pinterest", "Pinterest requires at least one image URL")
+
+        try:
+            # --- Get image URL (upload to GitHub Pages if needed) ---
+            raw_url = media_urls[0]
+            image_url = ""
+
+            if raw_url.startswith("data:"):
+                # Upload to GitHub Pages for public access
+                github_token = getattr(self._settings, "github_token", "") or ""
+                github_repo = getattr(self._settings, "github_video_repo", "") or ""
+                if not github_token or not github_repo:
+                    return self._failed_result("pinterest", "GitHub token or repo not configured in .env")
+
+                import uuid
+                parsed = self._parse_data_url(raw_url)
+                if not parsed:
+                    return self._failed_result("pinterest", "Could not parse base64 data URL")
+                mime, raw_bytes = parsed
+                ext = mimetypes.guess_extension(mime) or ".png"
+                filename = f"img_{uuid.uuid4().hex[:8]}{ext}"
+
+                github_headers = {
+                    "Authorization": f"token {github_token}",
+                    "Accept": "application/vnd.github.v3+json",
+                }
+                content_b64 = base64.b64encode(raw_bytes).decode("utf-8")
+
+                resp = await self._client.put(
+                    f"https://api.github.com/repos/{github_repo}/contents/{filename}",
+                    headers=github_headers,
+                    json={
+                        "message": f"Upload {filename} for Pinterest publishing",
+                        "content": content_b64,
+                    },
+                )
+                resp.raise_for_status()
+
+                image_url = f"https://raw.githubusercontent.com/{github_repo}/main/{filename}"
+                logger.info(f"Pinterest: image uploaded to GitHub Pages: {image_url}")
+                # Wait for GitHub Pages to process the new file
+                await asyncio.sleep(5)
+            elif self._is_public_http_url(raw_url):
+                image_url = raw_url
+            else:
+                return self._failed_result("pinterest", "Pinterest requires a public image URL")
+
+            # Pinterest API v5 - Create Pin
+            pin_data = {
+                "title": caption[:100] if caption else "My Pin",
+                "description": caption[:500] if caption else "",
+                "media_source": {
+                    "source_type": "image_url",
+                    "url": image_url,
+                },
+            }
+
+            if self.pinterest_board_id:
+                pin_data["board_id"] = self.pinterest_board_id
+
+            resp = await self._client.post(
+                "https://api-sandbox.pinterest.com/v5/pins",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                json=pin_data,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+            return PublishResult(
+                platform="pinterest",
+                status=PublishStatus.SUCCESS,
+                platform_post_id=data.get("id"),
+                published_at=time.time(),
+                error_message=None,
+                retry_after=None,
+            )
+
+        except httpx.HTTPStatusError as e:
+            message = e.response.text
+            logger.warning(f"Pinterest publish error ({e.response.status_code}): {message}")
+            if e.response.status_code in {401, 403}:
+                return self._auth_error("pinterest", message)
+            if e.response.status_code == 429:
+                retry_after = int(e.response.headers.get("Retry-After", 3600))
+                return PublishResult(
+                    platform="pinterest",
+                    status=PublishStatus.RATE_LIMITED,
+                    platform_post_id=None,
+                    published_at=None,
+                    error_message=message or "Rate limit exceeded",
+                    retry_after=None,
+                )
+            return self._failed_result("pinterest", message)
+        except Exception as e:
+            logger.warning(f"Pinterest publish error: {e}")
+            return self._failed_result("pinterest", str(e))
+
+    # ======================== END PINTEREST ========================
 
     def _mock_publish(self, platform: str) -> PublishResult:
         """Mock publish for development/testing without real tokens."""

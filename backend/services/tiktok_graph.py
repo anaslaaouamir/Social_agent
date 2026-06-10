@@ -38,11 +38,12 @@ class TikTokGraphService:
             raise ValueError(f"TikTok API error: {err.get('message', err['code'])}")
         return data
 
-    async def _post(self, path: str, json: dict) -> dict:
+    async def _post(self, path: str, json: dict, params: dict | None = None) -> dict:
         resp = await self.client.post(
             f"{TIKTOK_API_BASE}/{path.lstrip('/')}",
             headers=self._headers(),
             json=json,
+            params=params or {},
         )
         data = resp.json()
         if resp.status_code >= 400:
@@ -76,18 +77,16 @@ class TikTokGraphService:
         """
         Fetch the authenticated user's videos.
         Requires scope: video.list
+        NOTE: TikTok video/list/ requires 'fields' as a QUERY PARAM, not in the JSON body.
         """
         try:
+            logger.info("TikTok get_user_videos: fetching videos...")
             data = await self._post(
                 "video/list/",
-                {
-                    "fields": ["id", "title", "cover_image_url", "share_url",
-                               "video_description", "duration", "height", "width",
-                               "like_count", "comment_count", "share_count", "view_count",
-                               "create_time"],
-                    "max_count": min(max_count, 20),
-                },
+                {"max_count": min(max_count, 20)},
+                params={"fields": "id,title,cover_image_url,share_url,video_description,duration,height,width,like_count,comment_count,share_count,view_count,create_time"},
             )
+            logger.info(f"TikTok get_user_videos response: {data}")
             return data.get("data", {}).get("videos", [])
         except Exception as e:
             logger.warning(f"TikTok get_user_videos failed: {e}")
@@ -154,34 +153,54 @@ class TikTokGraphService:
                     "disable_stitch": False,
                 },
                 "source_info": {
-                    "source": "FILE_UPLOAD",
+                    "source": "PUSH_TO_URL",
                     "video_size": total_bytes,
-                    "chunk_size": chunk_size,
-                    "total_chunk_count": chunk_count,
                 },
             },
         )
         publish_id = init_data.get("data", {}).get("publish_id")
         upload_url = init_data.get("data", {}).get("upload_url")
         if not publish_id or not upload_url:
-            raise ValueError(f"TikTok INIT failed: {init_data}")
+            raise ValueError(f"TikTok INIT failed (no upload_url): {init_data}")
 
-        # Step 2: Upload chunks
-        for i in range(chunk_count):
-            start = i * chunk_size
-            end = min(start + chunk_size, total_bytes)
-            chunk = file_bytes[start:end]
-            headers = {
-                "Content-Type": "video/mp4",
-                "Content-Range": f"bytes {start}-{end - 1}/{total_bytes}",
-                "Content-Length": str(len(chunk)),
-            }
-            resp = await self.client.put(upload_url, headers=headers, content=chunk)
-            if resp.status_code not in {200, 201, 206}:
-                raise ValueError(f"TikTok chunk upload failed at chunk {i}: {resp.text}")
-            logger.info(f"TikTok: uploaded chunk {i + 1}/{chunk_count}")
+        # Step 2: Upload video bytes to upload_url
+        upload_resp = await self.client.put(
+            upload_url,
+            content=file_bytes,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "Content-Length": str(total_bytes),
+            },
+        )
+        if upload_resp.status_code not in {200, 201, 204, 202}:
+            raise ValueError(f"TikTok upload failed ({upload_resp.status_code}): {upload_resp.text[:500]}")
+        logger.info(f"TikTok: video uploaded successfully")
 
         return {"publish_id": publish_id}
+
+    # ------------------------------------------------------------------ #
+    # Video Comments                                                      #
+    # ------------------------------------------------------------------ #
+    async def get_video_comments(self, video_id: str, max_count: int = 20, cursor: int = 0) -> list[dict]:
+        """
+        Fetch comments for a specific video.
+        Requires scope: video.comment
+        """
+        try:
+            data = await self._post(
+                "video/comment/list/",
+                {
+                    "fields": "id,text,like_count,create_time,author,reply_comment_total",
+                    "video_id": video_id,
+                    "max_count": min(max_count, 20),
+                    "cursor": cursor,
+                },
+            )
+            comments = data.get("data", {}).get("comments", [])
+            return comments
+        except Exception as e:
+            logger.warning(f"TikTok get_video_comments failed: {e}")
+            return []
 
     async def get_publish_status(self, publish_id: str) -> dict:
         """Check the status of a video publish operation."""

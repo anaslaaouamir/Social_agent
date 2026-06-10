@@ -33,6 +33,7 @@ from services.tiktok_graph import TikTokGraphService
 from services.threads_graph import ThreadsGraphService
 from services.twitter_graph import TwitterGraphService
 from services.youtube_graph import YouTubeGraphService
+from loguru import logger
 
 router = APIRouter()
 settings = get_settings()
@@ -464,6 +465,64 @@ async def _fetch_live_posts_for_account(account: SocialAccount, limit: int = 20)
             }
             for item in videos
         ]
+    
+    if account.platform == Platform.PINTEREST:
+        import httpx as _httpx
+        token = account.access_token
+        if not token:
+            return []
+        try:
+            async with _httpx.AsyncClient(timeout=30) as client:
+                # Get user boards first, then pins
+                resp = await client.get(
+                    "https://api-sandbox.pinterest.com/v5/user_account",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+                resp.raise_for_status()
+                user_data = resp.json()
+                username = user_data.get("username", account.account_name)
+
+                resp = await client.get(
+                    "https://api-sandbox.pinterest.com/v5/boards",
+                    headers={"Authorization": f"Bearer {token}"},
+                    params={"page_size": 5},
+                )
+                resp.raise_for_status()
+                boards = resp.json().get("items", [])
+
+                all_pins = []
+                for board in boards[:3]:
+                    board_id = board.get("id")
+                    resp = await client.get(
+                        f"https://api-sandbox.pinterest.com/v5/boards/{board_id}/pins",
+                        headers={"Authorization": f"Bearer {token}"},
+                        params={"page_size": 10},
+                    )
+                    resp.raise_for_status()
+                    pins = resp.json().get("items", [])
+                    for pin in pins:
+                        media = pin.get("media", {})
+                        all_pins.append({
+                            "id": pin.get("id"),
+                            "account_id": str(account.id),
+                            "platform": account.platform.value,
+                            "account_name": account.account_name,
+                            "text": pin.get("description", "") or pin.get("title", ""),
+                            "timestamp": pin.get("created_at"),
+                            "published_at": _parse_datetime_to_ts(pin.get("created_at")),
+                            "likes": 0,
+                            "comments_count": 0,
+                            "shares_count": 0,
+                            "media_url": media.get("images", {}).get("originals", {}).get("url"),
+                            "media_type": "image",
+                            "permalink": f"https://www.pinterest.com/pin/{pin.get('id', '')}",
+                        })
+
+                return all_pins
+        except Exception as exc:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(f"Failed to fetch Pinterest pins: {exc}")
+            return []
 
     return []
 
@@ -590,7 +649,93 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
             for item in comments
         ]
 
-    return []
+    if account.platform == Platform.TIKTOK:
+        import hashlib
+        h = hashlib.md5(platform_post_id.encode()).hexdigest()[:6]
+        mock_comments = [
+            {
+                "id": f"comment_tiktok_{h}_1",
+                "username": "soukaina_tiktok",
+                "text": "Bch7al hada svp ? Dakchi ghzal !",
+                "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+                "like_count": 12,
+            },
+            {
+                "id": f"comment_tiktok_{h}_2",
+                "username": "mouad_dev",
+                "text": "Service client catastrophique, grosse arnaque !",
+                "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+                "like_count": 1,
+            },
+            {
+                "id": f"comment_tiktok_{h}_3",
+                "username": "yassine_travel",
+                "text": "Top ! Je recommande vivement ??",
+                "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+                "like_count": 25,
+            },
+            {
+                "id": f"comment_tiktok_{h}_4",
+                "username": "amelia_beauty",
+                "text": "Est-ce que la livraison est gratuite au Maroc ?",
+                "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+                "like_count": 3,
+            }
+        ]
+        return [
+            {
+                "id": item["id"],
+                "author": item["username"],
+                "text": item["text"],
+                "timestamp": item["timestamp"],
+                "likes": item["like_count"],
+                "platform": account.platform.value,
+                "can_reply": True,
+                "reply_mode": "comment",
+                "reply_target_id": item["id"],
+                "reply_parent_id": platform_post_id,
+                "reply_action_label": "Répondre au commentaire",
+            }
+            for item in mock_comments
+        ]
+
+
+    if account.platform == Platform.PINTEREST:
+        import httpx as _httpx
+
+        try:
+            async with _httpx.AsyncClient(timeout=30) as client:
+                resp = await client.get(
+                    f"https://api.pinterest.com/v5/pins/{platform_post_id}/comments",
+                    headers={"Authorization": f"Bearer {account.access_token}"},
+                    params={"page_size": 50},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    comments = data.get("items", [])
+                    if comments:
+                        return [
+                            {
+                                "id": item.get("id"),
+                                "author": (item.get("author") or {}).get("username", "Pinterest user"),
+                                "text": item.get("text", ""),
+                                "timestamp": item.get("created_at", ""),
+                                "likes": 0,
+                                "platform": account.platform.value,
+                                "can_reply": False,
+                                "reply_mode": "comment",
+                                "reply_target_id": item.get("id"),
+                                "reply_parent_id": platform_post_id,
+                                "reply_action_label": "Repondre au commentaire",
+                            }
+                            for item in comments
+                        ]
+                else:
+                    logger.warning(f"Pinterest comments API returned {resp.status_code}")
+        except Exception as e:
+            logger.warning(f"Pinterest comments failed: {e}")
+
+        return []
 
 
 async def _enrich_and_store_live_comment(
@@ -889,32 +1034,97 @@ async def delete_post(
     await db.delete(post)
 
 
+# ============================================================
+# PUBLISH DIRECT (SANS CELERY)
+# ============================================================
 @router.post("/{post_id}/publish", response_model=dict)
 async def publish_now(
     post_id: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Trigger immediate publish via Celery task."""
+    """Publication immediate SANS Celery."""
+    from services.social_publisher import SocialPublisherService
+
+    # 1. Charger le post ET le compte (jointure)
     result = await db.execute(
-        select(Post).join(SocialAccount)
+        select(Post, SocialAccount).join(SocialAccount)
         .where(Post.id == uuid.UUID(post_id), SocialAccount.user_id == current_user.id)
     )
-    post = result.scalar_one_or_none()
-    if not post:
+    row = result.one_or_none()
+    if not row:
         raise HTTPException(404, "Post not found")
+    post, account = row
+
     if post.status == PostStatus.PUBLISHED:
         raise HTTPException(400, "Already published")
 
+    # 2. Mettre le statut a PUBLISHING
     post.status = PostStatus.PUBLISHING
     await db.flush()
 
-    # Enqueue Celery task
-    try:
-        from services.scheduler import publish_post_task
-        publish_post_task.delay(str(post.id))
-    except Exception as e:
-        post.status = PostStatus.DRAFT
-        raise HTTPException(500, f"Failed to enqueue: {e}")
+    # 3. Extraire le board_id Pinterest depuis metadata
+    account_meta = account.metadata_ or {}
+    platform_value = account.platform.value
 
-    return {"status": "publishing", "post_id": post_id}
+    # 4. Creer le publisher avec TOUS les tokens
+    publisher = SocialPublisherService(
+        instagram_token=account.access_token if platform_value == "instagram" else "",
+        instagram_account_id=account.account_id if platform_value == "instagram" else "",
+        tiktok_token=account.access_token if platform_value == "tiktok" else "",
+        linkedin_token=account.access_token if platform_value == "linkedin" else "",
+        linkedin_member_id=account.account_id if platform_value == "linkedin" else "",
+        facebook_token=account.access_token if platform_value == "facebook" else "",
+        facebook_page_id=account.account_id if platform_value == "facebook" else "",
+        twitter_token=account.access_token if platform_value == "twitter" else "",
+        twitter_user_id=account.account_id if platform_value == "twitter" else "",
+        threads_token=account.access_token if platform_value == "threads" else "",
+        threads_user_id=account.account_id if platform_value == "threads" else "",
+        youtube_token=account.access_token if platform_value == "youtube" else "",
+        youtube_channel_id=account.account_id if platform_value == "youtube" else "",
+        # Pinterest: token + user_id + board_id depuis metadata
+        pinterest_token=account.access_token if platform_value == "pinterest" else "",
+        pinterest_user_id=account.account_id if platform_value == "pinterest" else "",
+        pinterest_board_id=account_meta.get("default_board_id", "") if platform_value == "pinterest" else "",
+    )
+
+    try:
+        # 5. Publier directement
+        publish_result = await publisher.publish_to_platform(
+            platform=platform_value,
+            caption=post.caption or "",
+            media_urls=post.media_urls or [],
+            content_type=post.content_type.value,
+            hashtags=post.hashtags or [],
+            source_post_id=str(post.id),
+        )
+
+        # 6. Mettre a jour le post
+        if publish_result.status.value == "success":
+            post.status = PostStatus.PUBLISHED
+            post.platform_post_id = publish_result.platform_post_id
+            post.published_at = publish_result.published_at or time.time()
+            await db.flush()
+            await publisher.close()
+            return {
+                "status": "published",
+                "post_id": post_id,
+                "platform_post_id": publish_result.platform_post_id,
+            }
+        else:
+            post.status = PostStatus.FAILED
+            await db.flush()
+            await publisher.close()
+            raise HTTPException(500, f"Erreur de publication: {publish_result.error_message}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        post.status = PostStatus.FAILED
+        await db.flush()
+        raise HTTPException(500, f"Erreur de publication: {str(e)}")
+    finally:
+        try:
+            await publisher.close()
+        except Exception:
+            pass

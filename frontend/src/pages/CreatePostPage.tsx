@@ -38,6 +38,24 @@ export default function CreatePostPage() {
   const [caption, setCaption] = useState('')
   const [hashtags, setHashtags] = useState<string[]>([])
   const [mediaUrls, setMediaUrls] = useState<string[]>([])
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Read file as base64 data URL (accepted by validation)
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      setMediaUrls((prev: string[]) => [...prev, dataUrl])
+      // Also upload to server so backend can access it
+      const formData = new FormData()
+      formData.append("file", file)
+      fetch("/api/uploads/", { method: "POST", body: formData }).catch(() => {})
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ""
+  }
+
+
   const [scheduledAt, setScheduledAt] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [loadingPost, setLoadingPost] = useState(false)
@@ -410,6 +428,8 @@ export default function CreatePostPage() {
                 )}
               </div>
             )}
+
+
 
             <input
               value={mediaUrls.join('\n')}

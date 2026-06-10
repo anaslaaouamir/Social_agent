@@ -95,6 +95,27 @@ async def _live_account_overview(account: SocialAccount, days: int) -> dict:
                 await svc.close()
             followers = int(metrics.get("followers_count", followers) or followers)
             live_metadata = {"likes_count": metrics.get("likes_count", 0), "video_count": metrics.get("video_count", 0)}
+        
+        elif account.platform.value == "pinterest":
+            import httpx as _httpx
+            async with _httpx.AsyncClient(timeout=30) as client:
+                # Get user account info (followers, pins, boards)
+                resp = await client.get(
+                    "https://api.pinterest.com/v5/user_account",
+                    headers={"Authorization": f"Bearer {account.access_token}"},
+                )
+                if resp.status_code == 200:
+                    user_data = resp.json()
+                    followers = int(user_data.get("follower_count", followers) or followers)
+                    live_metadata = {
+                        "pin_count": user_data.get("pin_count", 0),
+                        "board_count": user_data.get("board_count", 0),
+                        "profile_image": user_data.get("profile_image"),
+                        "username": user_data.get("username"),
+                        "website": user_data.get("website"),
+                    }
+                else:
+                    logger.warning(f"Pinterest user_account API error: {resp.status_code} {resp.text[:200]}")
     except Exception as exc:
         logger.warning(
             "Live analytics overview fallback for platform='{}' account_name='{}': {}",

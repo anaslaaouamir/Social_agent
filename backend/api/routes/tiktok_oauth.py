@@ -37,7 +37,7 @@ TIKTOK_AUTH_URL  = "https://www.tiktok.com/v2/auth/authorize/"
 TIKTOK_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 
 # Scopes needed: basic info + video list + publish
-SCOPES = "user.info.basic,user.info.profile,user.info.stats,video.list"
+SCOPES = "user.info.basic,user.info.profile,user.info.stats,video.list,video.publish"
 
 _oauth_state_store: dict[str, dict[str, str | float]] = {}
 

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        
     )
 
     # Core
@@ -100,6 +101,8 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
     public_api_base_url: str = ""
     meta_webhook_verify_token: str = ""
+    github_token: str = ""
+    github_video_repo: str = ""
 
     # Storage
     s3_endpoint_url: str = ""
@@ -127,6 +130,11 @@ class Settings(BaseSettings):
     enable_crisis_alerts: bool = True
     crisis_negative_threshold: float = 0.4
     crisis_volume_multiplier: float = 3.0
+
+    # Pinterest
+    pinterest_app_id: str = ""
+    pinterest_app_secret: str = ""
+    pinterest_redirect_uri: str = "http://localhost:8000/api/auth/pinterest/callback"
 
     @field_validator("debug", mode="before")
     @classmethod

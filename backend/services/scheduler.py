@@ -59,6 +59,7 @@ def publish_post_task(self, post_id: str):
                 logger.error(f"Account not found for post {post_id}")
                 return
 
+            account_meta = account.metadata_ or {}
             # Run async publisher in sync context
             async def _publish():
                 SocialPublisherService = _load_social_publisher()
@@ -76,6 +77,9 @@ def publish_post_task(self, post_id: str):
                     threads_user_id=account.account_id if account.platform.value == "threads" else "",
                     youtube_token=account.access_token if account.platform.value == "youtube" else "",
                     youtube_channel_id=account.account_id if account.platform.value == "youtube" else "",
+                    pinterest_token=account.access_token if account.platform.value == "pinterest" else "",
+                    pinterest_user_id=account.account_id if account.platform.value == "pinterest" else "",
+                    pinterest_board_id=account_meta.get("default_board_id", "") if account.platform.value == "pinterest" else "",
                 )
                 return await publisher.publish_to_platform(
                     platform=account.platform.value,

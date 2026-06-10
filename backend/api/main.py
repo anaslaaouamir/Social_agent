@@ -17,10 +17,11 @@ from api.routes import nlp as nlp_routes
 from core.config import get_settings
 from core.runtime_state import mark_runtime
 from api.routes import (
+    upload as upload_routes,
     auth, posts, analytics, hashtags,
     comments, dm, accounts, alerts, calendar, content,
     monitoring, profile, linkedIn_oauth, facebook_oauth,
-    instagram_oauth, twitter_oauth, tiktok_oauth, threads_oauth, youtube_oauth, meta_webhooks,
+        instagram_oauth, twitter_oauth, tiktok_oauth, pinterest_oauth, threads_oauth, youtube_oauth, meta_webhooks,pinterest_oauth,
 )
 
 from core.runtime_state import mark_runtime, runtime_state
@@ -127,12 +128,15 @@ app.include_router(instagram_oauth.router, prefix="/api/auth", tags=["Instagram 
 app.include_router(linkedIn_oauth.router, prefix="/api/auth", tags=["LinkedIn OAuth"])
 app.include_router(twitter_oauth.router, prefix="/api/auth", tags=["Twitter OAuth"])
 app.include_router(tiktok_oauth.router, prefix="/api/auth", tags=["TikTok OAuth"])
+app.include_router(pinterest_oauth.router, prefix="/api/auth", tags=["Pinterest OAuth"])
 app.include_router(threads_oauth.router, prefix="/api/auth", tags=["Threads OAuth"])
 app.include_router(threads_oauth.public_router, tags=["Threads OAuth"])
 app.include_router(youtube_oauth.router, prefix="/api/auth", tags=["YouTube OAuth"])
 app.include_router(youtube_oauth.public_router, tags=["YouTube OAuth"])
+app.include_router(pinterest_oauth.router, prefix="/api/auth", tags=["Pinterest OAuth"])
 app.include_router(nlp_routes.router, prefix="/api/nlp", tags=["NLP & ML"])
 app.include_router(meta_webhooks.router, prefix="/api/webhooks", tags=["Meta Webhooks"])
+app.include_router(upload_routes.router, tags=["Uploads"])
 
 
 @app.get("/api/health", tags=["Health"])

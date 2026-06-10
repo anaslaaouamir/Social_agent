@@ -47,6 +47,7 @@ export const accountsApi = {
   getTikTokAuthUrl: () => api.get('/api/auth/tiktok/login'),
   getThreadsAuthUrl: () => api.get('/api/auth/threads/login'),
   getYouTubeAuthUrl: () => api.get('/api/auth/youtube/login'),
+  getPinterestAuthUrl: () => api.get('/api/auth/pinterest/login'),
   publishFacebookWithFile: (accountId: string, message: string, image: File) => {
     const fd = new FormData()
     fd.append('message', message)
