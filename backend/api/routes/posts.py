@@ -497,6 +497,7 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
             all_comments.append({
                 "id": item.get("id"),
                 "author": item.get("username", "Instagram user"),
+                "is_from_page": item.get("username") == account.account_name,
                 "text": item.get("text", ""),
                 "timestamp": item.get("timestamp"),
                 "likes": item.get("like_count", 0),
@@ -514,6 +515,7 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
                 all_comments.append({
                     "id": reply.get("id"),
                     "author": reply.get("username", "Instagram user"),
+                    "is_from_page": reply.get("username") == account.account_name,
                     "text": reply.get("text", ""),
                     "timestamp": reply.get("timestamp"),
                     "likes": reply.get("like_count", 0),
@@ -530,24 +532,28 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
 
     if account.platform == Platform.FACEBOOK:
         import httpx
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(
-                f"https://graph.facebook.com/v20.0/{platform_post_id}/comments",
-                params={
-                    "access_token": account.access_token,
-                    "fields": "id,message,from,created_time,like_count,comments{id,message,from,created_time,like_count}",
-                    "summary": "true",
-                },
-            )
-        data = resp.json()
-        if "error" in data:
-            raise HTTPException(400, f"Facebook API error: {data['error']['message']}")
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.get(
+                    f"https://graph.facebook.com/v20.0/{platform_post_id}/comments",
+                    params={
+                        "access_token": account.access_token,
+                        "fields": "id,message,from,created_time,like_count,comments{id,message,from,created_time,like_count}",
+                        "summary": "true",
+                    },
+                )
+            data = resp.json()
+            if "error" in data:
+                raise HTTPException(400, f"Facebook API error: {data['error']['message']}")
+        except httpx.RequestError as e:
+            raise HTTPException(503, f"Facebook API connection error: {e}")
             
         all_comments = []
         for item in data.get("data", []):
             all_comments.append({
                 "id": item.get("id"),
                 "author": (item.get("from") or {}).get("name", "Facebook user"),
+                "is_from_page": (item.get("from") or {}).get("name") == account.account_name,
                 "text": item.get("message", ""),
                 "timestamp": item.get("created_time"),
                 "likes": item.get("like_count", 0),
@@ -565,6 +571,7 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
                 all_comments.append({
                     "id": reply.get("id"),
                     "author": (reply.get("from") or {}).get("name", "Facebook user"),
+                    "is_from_page": (reply.get("from") or {}).get("name") == account.account_name,
                     "text": reply.get("message", ""),
                     "timestamp": reply.get("created_time"),
                     "likes": reply.get("like_count", 0),
@@ -660,6 +667,7 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
             all_comments.append({
                 "id": item.get("id"),
                 "author": item.get("username", "Threads user"),
+                "is_from_page": item.get("username") == account.account_name,
                 "text": item.get("text", ""),
                 "timestamp": item.get("timestamp"),
                 "likes": 0,
@@ -677,6 +685,7 @@ async def _fetch_live_comments_for_account(account: SocialAccount, platform_post
                 all_comments.append({
                     "id": reply.get("id"),
                     "author": reply.get("username", "Threads user"),
+                    "is_from_page": reply.get("username") == account.account_name,
                     "text": reply.get("text", ""),
                     "timestamp": reply.get("timestamp"),
                     "likes": 0,

@@ -397,6 +397,7 @@ export default function InboxPage() {
     const next = items.map(item => ({ ...item }))
     if (!settings.accountEnabled(selectedPost?.account_id)) return next
     for (const comment of next) {
+      if (comment.isFromPage) continue
       if (!isAfterAutoReplyEnabled(comment.timestamp)) continue
       const legacyKey = `comment:${comment.platform}:${comment.id}`
       const key = stableAutoReplyKey([
@@ -602,6 +603,7 @@ export default function InboxPage() {
         isSpam: !!item.is_spam,
         isToxic: !!item.is_toxic,
         canReply: item.can_reply !== false,
+        isFromPage: !!item.is_from_page,
         replyMode: item.reply_mode || 'comment',
         replyTargetId: item.reply_target_id ? String(item.reply_target_id) : '',
         replyParentId: item.reply_parent_id ? String(item.reply_parent_id) : '',
