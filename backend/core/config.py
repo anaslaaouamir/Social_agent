@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     hugging_face_api: str = ""
+    groq_api_key: str = ""
 
     # Social Platforms
     instagram_access_token: str = ""

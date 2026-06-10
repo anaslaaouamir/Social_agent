@@ -112,19 +112,19 @@ class ClaudeLangGraphOrchestrator:
     """Single backend entry point for Claude calls, graph flow, RAG, and memory."""
 
     CLAUDE_MODEL = "claude-sonnet-4-20250514"
-    HUGGINGFACE_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
+    GROQ_MODEL = "llama-3.1-8b-instant"
 
     def __init__(self):
         settings = get_settings()
         self.anthropic_api_key = settings.anthropic_api_key
-        self.hugging_face_api = settings.hugging_face_api
-        self.model = self.CLAUDE_MODEL if self.anthropic_api_key else self.HUGGINGFACE_MODEL
+        self.groq_api_key = settings.groq_api_key
+        self.model = self.CLAUDE_MODEL if self.anthropic_api_key else self.GROQ_MODEL
         self._graph = None
         self._last_model = self.model
 
     def _ensure_configured(self) -> None:
-        if not self.anthropic_api_key and not self.hugging_face_api:
-            raise LLMConfigurationError("ANTHROPIC_API_KEY or HUGGING_FACE_API is not configured")
+        if not self.anthropic_api_key and not self.groq_api_key:
+            raise LLMConfigurationError("ANTHROPIC_API_KEY or GROQ_API_KEY is not configured")
 
     async def _call_llm(self, *, system_prompt: str, messages: list[dict[str, str]], max_tokens: int) -> str:
         self._ensure_configured()
@@ -133,10 +133,12 @@ class ClaudeLangGraphOrchestrator:
                 self._last_model = self.CLAUDE_MODEL
                 return await self._call_claude(system_prompt=system_prompt, messages=messages, max_tokens=max_tokens)
             except Exception as exc:
-                if not self.hugging_face_api:
+                if not self.groq_api_key:
                     raise
-                logger.warning("Claude call failed, falling back to Hugging Face: %s", exc)
-        return await self._call_huggingface(system_prompt=system_prompt, messages=messages, max_tokens=max_tokens)
+                logger.warning("Claude call failed, falling back to Groq: %s", exc)
+                
+        # If no Claude key or Claude fails, call Groq
+        return await self._call_groq(system_prompt=system_prompt, messages=messages, max_tokens=max_tokens)
 
     async def _call_claude(self, *, system_prompt: str, messages: list[dict[str, str]], max_tokens: int) -> str:
         import anthropic
@@ -177,6 +179,24 @@ class ClaudeLangGraphOrchestrator:
             return_full_text=False,
         )
         return str(result).strip()
+    
+    async def _call_groq(self, *, system_prompt: str, messages: list[dict[str, str]], max_tokens: int) -> str:
+        from groq import AsyncGroq
+
+        self._last_model = self.GROQ_MODEL
+        client = AsyncGroq(api_key=self.groq_api_key)
+        
+        # Groq uses the exact same message format as OpenAI/Claude
+        formatted_messages = [{"role": "system", "content": system_prompt}]
+        formatted_messages.extend(messages)
+
+        response = await client.chat.completions.create(
+            model=self.GROQ_MODEL,
+            messages=formatted_messages,
+            max_tokens=max_tokens,
+            temperature=0.3,
+        )
+        return str(response.choices[0].message.content).strip()
 
     def _build_graph(self):
         try:
