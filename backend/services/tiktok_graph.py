@@ -140,7 +140,9 @@ class TikTokGraphService:
         Requires scope: video.publish
         """
         total_bytes = len(file_bytes)
-        chunk_count = (total_bytes + chunk_size - 1) // chunk_size
+        # TikTok requires chunk_size to equal total_bytes if it's a single chunk
+        actual_chunk_size = min(chunk_size, total_bytes)
+        chunk_count = (total_bytes + actual_chunk_size - 1) // actual_chunk_size
 
         # Step 1: INIT
         init_data = await self._post(
@@ -156,7 +158,7 @@ class TikTokGraphService:
                 "source_info": {
                     "source": "FILE_UPLOAD",
                     "video_size": total_bytes,
-                    "chunk_size": chunk_size,
+                    "chunk_size": actual_chunk_size,
                     "total_chunk_count": chunk_count,
                 },
             },
@@ -168,8 +170,8 @@ class TikTokGraphService:
 
         # Step 2: Upload chunks
         for i in range(chunk_count):
-            start = i * chunk_size
-            end = min(start + chunk_size, total_bytes)
+            start = i * actual_chunk_size
+            end = min(start + actual_chunk_size, total_bytes)
             chunk = file_bytes[start:end]
             headers = {
                 "Content-Type": "video/mp4",

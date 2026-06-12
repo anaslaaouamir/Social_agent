@@ -53,6 +53,13 @@ export const accountsApi = {
     fd.append('image', image)
     return api.post(`/api/auth/facebook/publish-with-file/${accountId}`, fd)
   },
+
+  publishTikTokWithFile: (accountId: string, title: string, video: File) => {
+    const fd = new FormData()
+    fd.append('title', title)
+    fd.append('video', video)
+    return api.post(`/api/auth/tiktok/publish-with-file/${accountId}`, fd)
+  },
 }
 
 // Posts

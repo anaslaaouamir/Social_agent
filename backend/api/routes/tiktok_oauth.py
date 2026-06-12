@@ -13,7 +13,7 @@ from datetime import datetime
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -37,7 +37,7 @@ TIKTOK_AUTH_URL  = "https://www.tiktok.com/v2/auth/authorize/"
 TIKTOK_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 
 # Scopes needed: basic info + video list + publish
-SCOPES = "user.info.basic,user.info.profile,user.info.stats,video.list"
+SCOPES = "user.info.basic,user.info.profile,user.info.stats,video.list,video.publish"
 
 _oauth_state_store: dict[str, dict[str, str | float]] = {}
 
@@ -407,4 +407,48 @@ async def publish_tiktok_post(
         "status": "published",
         "publish_id": result_data.get("publish_id"),
         "title": payload.title,
+    }
+
+
+@router.post("/tiktok/publish-with-file/{account_id}")
+async def publish_tiktok_with_file(
+    account_id: str,
+    title: str,
+    video: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Publish a video to TikTok using direct file upload."""
+    result = await db.execute(
+        select(SocialAccount).where(
+            SocialAccount.id == uuid.UUID(account_id),
+            SocialAccount.user_id == current_user.id,
+            SocialAccount.platform == Platform.TIKTOK,
+        )
+    )
+    account = result.scalar_one_or_none()
+    if not account:
+        raise HTTPException(404, "TikTok account not found")
+
+    file_bytes = await video.read()
+    if not file_bytes:
+        raise HTTPException(400, "Video file is empty")
+
+    svc = TikTokGraphService(account.access_token)
+    try:
+        result_data = await svc.publish_video_direct(
+            file_bytes=file_bytes,
+            title=title,
+            privacy_level="SELF_ONLY",
+        )
+    except Exception as exc:
+        raise HTTPException(400, f"TikTok API error: {exc}")
+    finally:
+        await svc.close()
+
+    return {
+        "status": "published",
+        "publish_id": result_data.get("publish_id"),
+        "title": title,
+        "filename": video.filename,
     }

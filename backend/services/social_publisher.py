@@ -502,44 +502,55 @@ class SocialPublisherService:
         if not token:
             return self._mock_publish("tiktok")
 
+        if not media_urls:
+            return self._failed_result("tiktok", "TikTok requires a video to publish.")
+
         try:
-            # TikTok Content Posting API v2
-            prepared_url = ""
-            if media_urls:
-                prepared_url = await self._prepare_non_facebook_media_url(
-                    "tiktok",
-                    media_urls[0],
-                    post_id=source_post_id,
-                    media_index=0,
+            # 1. Get the raw video bytes
+            media_url = media_urls[0]
+            if media_url.startswith("/media/"):
+                import os
+                # Read directly from the backend directory to bypass HTTP network resolution
+                file_path = media_url.lstrip("/")
+                with open(file_path, "rb") as f:
+                    video_bytes = f.read()
+            elif self._is_public_http_url(media_url):
+                video_resp = await self._client.get(media_url, timeout=120.0)
+                video_resp.raise_for_status()
+                video_bytes = video_resp.content
+            else:
+                parsed_data_url = self._parse_data_url(media_url)
+                if not parsed_data_url:
+                    return self._failed_result(
+                        "tiktok",
+                        "TikTok requires either a public http(s) media URL or a base64 data URL from the media library.",
+                    )
+                _, video_bytes = parsed_data_url
+
+            # 2. Use TikTokGraphService for direct chunked upload
+            from services.tiktok_graph import TikTokGraphService
+            svc = TikTokGraphService(token)
+            
+            try:
+                result_data = await svc.publish_video_direct(
+                    file_bytes=video_bytes,
+                    title=caption[:150],
+                    privacy_level="SELF_ONLY"
                 )
-            resp = await self._client.post(
-                "https://open.tiktokapis.com/v2/post/publish/video/init/",
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                json={
-                    "post_info": {
-                        "title": caption[:150],
-                        "disable_comment": False,
-                        "privacy_level": "PUBLIC_TO_EVERYONE",
-                    },
-                    "source_info": {
-                        "source": "PULL_FROM_URL",
-                        "video_url": prepared_url,
-                    },
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
+            finally:
+                await svc.close()
+
             return PublishResult(
                 platform="tiktok",
                 status=PublishStatus.SUCCESS,
-                platform_post_id=data.get("data", {}).get("publish_id"),
+                platform_post_id=result_data.get("publish_id"),
                 published_at=time.time(),
                 error_message=None,
                 retry_after=None,
             )
         except Exception as e:
             logger.warning(f"TikTok publish error: {e}")
-            return self._mock_publish("tiktok")
+            return self._failed_result("tiktok", str(e))
 
     async def _publish_linkedin(
         self,
