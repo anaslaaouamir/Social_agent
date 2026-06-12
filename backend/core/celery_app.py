@@ -101,6 +101,10 @@ celery_app.conf.update(
         'sync-hidden-comments-every-5-mins': {
             'task': 'services.comment_monitor.sync_hidden_comments',
             'schedule': crontab(minute='*/5'),
-    },
+        },
+        "sync-all-followers-hourly": {
+            "task": "services.scheduler.sync_all_account_followers",
+            "schedule": crontab(minute=0),
+        },
     },
 )

@@ -132,3 +132,93 @@ def process_due_posts():
             session.commit()
             publish_post_task.delay(str(post.id))
             logger.info(f"Enqueued post {post.id} for publishing")
+
+@celery_app.task(name="services.scheduler.sync_all_account_followers")
+def sync_all_account_followers():
+    """Isolated background task to sync follower counts for all accounts every hour."""
+    import asyncio
+    import httpx
+    from sqlalchemy import create_engine, select
+    from sqlalchemy.orm import Session
+    from core.config import get_settings
+    
+    settings = get_settings()
+    engine = create_engine(settings.sync_database_url)
+    
+    try:
+        from models.domain import SocialAccount
+    except ModuleNotFoundError:
+        from backend.models.domain import SocialAccount
+
+    with Session(engine) as session:
+        accounts = session.execute(select(SocialAccount)).scalars().all()
+        
+        async def _sync_account(account):
+            platform = account.platform.value if hasattr(account.platform, "value") else account.platform
+            try:
+                if platform == "tiktok":
+                    from services.tiktok_graph import TikTokGraphService
+                    svc = TikTokGraphService(account.access_token)
+                    try:
+                        metrics = await svc.get_account_metrics()
+                        if metrics and "followers_count" in metrics:
+                            return metrics["followers_count"]
+                    finally:
+                        await svc.close()
+                        
+                elif platform == "instagram":
+                    from services.instagram_graph import InstagramService
+                    svc = InstagramService(account.access_token)
+                    try:
+                        info = await svc.get_account_info(account.account_id)
+                        if info and "followers_count" in info:
+                            return info["followers_count"]
+                    finally:
+                        await svc.close()
+                        
+                elif platform == "facebook":
+                    # For Facebook Page tokens, the safest way is a direct raw HTTP call
+                    async with httpx.AsyncClient(timeout=15.0) as client:
+                        resp = await client.get(
+                            f"https://graph.facebook.com/v19.0/{account.account_id}",
+                            params={"fields": "followers_count,fan_count", "access_token": account.access_token}
+                        )
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            return data.get("followers_count") or data.get("fan_count", 0)
+                            
+                elif platform == "linkedin":
+                    from services.linkedIn_graph import LinkedInGraphService
+                    svc = LinkedInGraphService(account.access_token)
+                    try:
+                        metrics = await svc.get_member_analytics(account.account_id)
+                        if metrics and "follower_count" in metrics:
+                            return metrics["follower_count"]
+                    finally:
+                        await svc.close()
+                        
+                elif platform == "threads":
+                    from services.threads_graph import ThreadsGraphService
+                    svc = ThreadsGraphService(account.access_token)
+                    try:
+                        insights_data = await svc._get(f"/{account.account_id}/threads_insights", {"metric": "followers_count"})
+                        for item in insights_data.get("data", []):
+                            if item.get("name") == "followers_count":
+                                return item.get("total_value", {}).get("value", 0)
+                    finally:
+                        await svc.close()
+                        
+            except Exception as e:
+                logger.warning(f"Sandboxed sync failed for {platform} account {account.id}: {e}")
+            return None
+
+        async def _run_all():
+            for acc in accounts:
+                new_count = await _sync_account(acc)
+                if new_count is not None:
+                    acc.followers_count = int(new_count)
+                    session.commit()
+                    platform_str = acc.platform.value if hasattr(acc.platform, "value") else acc.platform
+                    logger.info(f"Background Sync: Updated followers for {acc.account_name} ({platform_str}) to {new_count}")
+
+        asyncio.run(_run_all())
