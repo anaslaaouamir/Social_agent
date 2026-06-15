@@ -903,6 +903,14 @@ class SocialPublisherService:
         *,
         source_post_id: str | None = None,
     ) -> tuple[bytes, str]:
+        if media_url.startswith("/media/"):
+            import os
+            import mimetypes
+            file_path = media_url.lstrip("/")
+            mime_type = mimetypes.guess_type(file_path)[0] or "video/mp4"
+            with open(file_path, "rb") as f:
+                return f.read(), mime_type
+
         parsed_data_url = self._parse_data_url(media_url)
         if parsed_data_url:
             mime_type, raw_bytes = parsed_data_url
@@ -949,7 +957,7 @@ class SocialPublisherService:
                 file_bytes=file_bytes,
                 title=title,
                 description=caption[:5000],
-                privacy_status="private",
+                privacy_status="public",
                 mime_type=mime_type,
             )
             await svc.close()

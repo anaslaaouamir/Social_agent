@@ -496,6 +496,20 @@ async def _send_unified_reply(account: SocialAccount, payload: dict) -> dict:
         finally:
             await svc.close()
 
+    if account.platform == Platform.YOUTUBE:
+        if reply_mode != "comment":
+            raise HTTPException(400, "YouTube replies are currently supported only as comments")
+        target_id = reply_target_id or reply_parent_id
+        if not target_id:
+            raise HTTPException(400, "reply_target_id is required for YouTube comment replies")
+        from services.youtube_graph import YouTubeGraphService
+        svc = YouTubeGraphService(account.access_token)
+        try:
+            response = await svc.reply_to_comment(target_id, message)
+            return {"status": "sent", "mode": "comment", "result": response}
+        finally:
+            await svc.close()
+
     raise HTTPException(400, f"Reply is not yet supported for {account.platform.value} accounts in this integration.")
 
 

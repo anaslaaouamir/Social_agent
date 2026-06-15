@@ -176,7 +176,7 @@ class YouTubeGraphService:
         description: str = "",
         tags: list[str] | None = None,
         category_id: str = "22",
-        privacy_status: str = "private",
+        privacy_status: str = "public",
         mime_type: str = "video/mp4",
     ) -> dict:
         """Upload a video using YouTube resumable upload. Requires youtube.upload."""

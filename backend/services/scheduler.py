@@ -208,6 +208,16 @@ def sync_all_account_followers():
                     finally:
                         await svc.close()
                         
+                elif platform == "youtube":
+                    from services.youtube_graph import YouTubeGraphService
+                    svc = YouTubeGraphService(account.access_token)
+                    try:
+                        channel_data = await svc.get_my_channel()
+                        stats = channel_data.get("statistics") or {}
+                        return stats.get("subscriberCount") or 0
+                    finally:
+                        await svc.close()
+                        
             except Exception as e:
                 logger.warning(f"Sandboxed sync failed for {platform} account {account.id}: {e}")
             return None
