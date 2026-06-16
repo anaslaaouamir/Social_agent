@@ -95,6 +95,20 @@ async def _live_account_overview(account: SocialAccount, days: int) -> dict:
                 await svc.close()
             followers = int(metrics.get("followers_count", followers) or followers)
             live_metadata = {"likes_count": metrics.get("likes_count", 0), "video_count": metrics.get("video_count", 0)}
+
+        elif account.platform.value == "pinterest":
+            from services.pinterest_graph import PinterestGraphService
+            svc = PinterestGraphService(account.access_token)
+            try:
+                user_data = await svc._get("user_account")
+                followers = int(user_data.get("follower_count", followers) or followers)
+                live_metadata = {
+                    "pin_count": user_data.get("pin_count", 0),
+                    "board_count": user_data.get("board_count", 0),
+                    "monthly_views": user_data.get("monthly_views", -1)
+                }
+            finally:
+                await svc.close()
     except Exception as exc:
         logger.warning(
             "Live analytics overview fallback for platform='{}' account_name='{}': {}",

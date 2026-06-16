@@ -76,6 +76,7 @@ def publish_post_task(self, post_id: str):
                     threads_user_id=account.account_id if account.platform.value == "threads" else "",
                     youtube_token=account.access_token if account.platform.value == "youtube" else "",
                     youtube_channel_id=account.account_id if account.platform.value == "youtube" else "",
+                    pinterest_token=account.access_token if account.platform.value == "pinterest" else "",
                 )
                 return await publisher.publish_to_platform(
                     platform=account.platform.value,

@@ -180,8 +180,16 @@ export default function CreatePostPage() {
       toast.error("Le carrousel n'est pas encore pris en charge pour Threads")
       return
     }
-
-    
+    if (selectedPlatformAccounts.some((a: any) => a.platform === 'pinterest')) {
+      if (mediaUrls.length === 0) {
+        toast.error('Pinterest necessite une image (Pin)')
+        return
+      }
+      if (contentType !== 'image' && contentType !== 'carousel') {
+        toast.error('Pinterest ne prend en charge que les images pour le moment')
+        return
+      }
+    } 
 
     setSubmitting(true)
     try {

@@ -481,6 +481,45 @@ async def _fetch_live_posts_for_account(account: SocialAccount, limit: int = 20)
             for item in videos
         ]
 
+    if account.platform == Platform.PINTEREST:
+        from services.pinterest_graph import PinterestGraphService
+        svc = PinterestGraphService(account.access_token)
+        try:
+            pins = await svc.get_pins()
+            
+            import datetime
+            end_date = datetime.date.today().strftime("%Y-%m-%d")
+            start_date = (datetime.date.today() - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
+            
+            results = []
+            for item in pins[:limit]:
+                pin_id = item.get("id")
+                try:
+                    analytics = await svc.get_pin_analytics(pin_id, start_date, end_date)
+                except Exception:
+                    analytics = {}
+                    
+                results.append({
+                    "id": pin_id,
+                    "account_id": str(account.id),
+                    "platform": account.platform.value,
+                    "account_name": account.account_name,
+                    "text": item.get("description") or item.get("title", ""),
+                    "timestamp": item.get("created_at"),
+                    "published_at": _parse_datetime_to_ts(item.get("created_at")),
+                    "likes": analytics.get("saves", 0),
+                    "comments_count": analytics.get("clicks", 0),
+                    "shares_count": analytics.get("outbound_clicks", 0),
+                    "reach": analytics.get("impressions", 0),
+                    "impressions": analytics.get("impressions", 0),
+                    "media_url": item.get("media", {}).get("images", {}).get("600x", {}).get("url") or item.get("media", {}).get("images", {}).get("400x300", {}).get("url"),
+                    "media_type": "image",
+                    "permalink": item.get("link") or f"https://www.pinterest.com/pin/{pin_id}/",
+                })
+            return results
+        finally:
+            await svc.close()
+
     return []
 
 

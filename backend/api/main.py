@@ -20,7 +20,7 @@ from api.routes import (
     auth, posts, analytics, hashtags,
     comments, dm, accounts, alerts, calendar, content,
     monitoring, profile, linkedIn_oauth, facebook_oauth,
-    instagram_oauth, twitter_oauth, tiktok_oauth, threads_oauth, youtube_oauth, meta_webhooks,
+    instagram_oauth, twitter_oauth, tiktok_oauth, threads_oauth, youtube_oauth, meta_webhooks, pinterest_oauth,
 )
 
 from core.runtime_state import mark_runtime, runtime_state
@@ -135,6 +135,8 @@ app.include_router(threads_oauth.router, prefix="/api/auth", tags=["Threads OAut
 app.include_router(threads_oauth.public_router, tags=["Threads OAuth"])
 app.include_router(youtube_oauth.router, prefix="/api/auth", tags=["YouTube OAuth"])
 app.include_router(youtube_oauth.public_router, tags=["YouTube OAuth"])
+app.include_router(pinterest_oauth.router, prefix="/api/auth", tags=["Pinterest OAuth"])
+app.include_router(pinterest_oauth.public_router, tags=["Pinterest OAuth"])
 app.include_router(nlp_routes.router, prefix="/api/nlp", tags=["NLP & ML"])
 app.include_router(meta_webhooks.router, prefix="/api/webhooks", tags=["Meta Webhooks"])
 

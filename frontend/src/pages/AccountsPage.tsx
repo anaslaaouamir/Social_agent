@@ -117,7 +117,11 @@ export default function AccountsPage() {
       }
 
       if (platform.id === 'pinterest') {
-        throw new Error(`OAuth ${platform.label} pas encore configuree cote backend`)
+        const res = await accountsApi.getPinterestAuthUrl()
+        const authUrl = res.data?.auth_url
+        if (!authUrl) throw new Error('URL OAuth Pinterest introuvable')
+        window.location.assign(authUrl)
+        return
       }
 
       throw new Error(`Connexion OAuth non configuree pour ${platform.label}`)

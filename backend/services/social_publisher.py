@@ -71,6 +71,8 @@ class SocialPublisherService:
         threads_user_id: str = "",
         youtube_token: str = "",
         youtube_channel_id: str = "",
+        pinterest_token: str = "",
+        pinterest_board_id: str = "",
     ):
         self.tokens = {
             "instagram": instagram_token,
@@ -80,6 +82,7 @@ class SocialPublisherService:
             "twitter": twitter_token,
             "threads": threads_token,
             "youtube": youtube_token,
+            "pinterest": pinterest_token,
         }
         self.instagram_account_id = instagram_account_id
         self.linkedin_member_id = linkedin_member_id
@@ -87,6 +90,7 @@ class SocialPublisherService:
         self.twitter_user_id = twitter_user_id
         self.threads_user_id = threads_user_id
         self.youtube_channel_id = youtube_channel_id
+        self.pinterest_board_id = pinterest_board_id
         self._client = httpx.AsyncClient(timeout=30.0)
         self._settings = get_settings()
 
@@ -246,6 +250,7 @@ class SocialPublisherService:
             "twitter": self._publish_twitter,
             "threads": self._publish_threads,
             "youtube": self._publish_youtube,
+            "pinterest": self._publish_pinterest,
         }
 
         publisher = publishers.get(platform.lower())
@@ -978,6 +983,74 @@ class SocialPublisherService:
         except Exception as e:
             logger.warning(f"YouTube publish error: {e}")
             return self._failed_result("youtube", str(e))
+
+    async def _publish_pinterest(
+        self,
+        caption: str,
+        media_urls: list[str],
+        content_type: str,
+        source_post_id: str | None = None,
+    ) -> PublishResult:
+        """Publish an image to Pinterest."""
+        token = (self.tokens.get("pinterest") or "").strip()
+        board_id = getattr(self, "pinterest_board_id", None)
+        if not token:
+            return self._auth_error("pinterest", "Pinterest access token is missing")
+        if not media_urls:
+            return self._unsupported_content_result("pinterest", content_type, "an image URL is required.")
+
+        try:
+            from services.pinterest_graph import PinterestGraphService
+            svc = PinterestGraphService(token)
+            
+            if not board_id:
+                boards = await svc.get_boards()
+                if not boards:
+                     return self._failed_result("pinterest", "User has no Pinterest boards to post to.")
+                board_id = boards[0]["id"]
+            
+            prepared_url = await self._prepare_non_facebook_media_url(
+                "pinterest",
+                media_urls[0],
+                post_id=source_post_id,
+                media_index=0,
+            )
+            title = caption.strip().splitlines()[0][:100] if caption.strip() else "Pinterest Pin"
+            
+            from core.config import get_settings
+            settings = get_settings()
+            
+            if settings.pinterest_access_token:
+                sandbox_svc = PinterestGraphService(settings.pinterest_access_token)
+                try:
+                    result = await sandbox_svc.create_pin(
+                        board_id=board_id,
+                        title=title,
+                        description=caption[:500],
+                        image_url=prepared_url
+                    )
+                finally:
+                    await sandbox_svc.close()
+            else:
+                result = await svc.create_pin(
+                    board_id=board_id,
+                    title=title,
+                    description=caption[:500],
+                    image_url=prepared_url
+                )
+                
+            await svc.close()
+            return PublishResult(
+                platform="pinterest",
+                status=PublishStatus.SUCCESS,
+                platform_post_id=result.get("id"),
+                published_at=time.time(),
+                error_message=None,
+                retry_after=None,
+            )
+        except Exception as e:
+            logger.warning(f"Pinterest publish error: {e}")
+            return self._failed_result("pinterest", str(e))
 
     def _mock_publish(self, platform: str) -> PublishResult:
         """Mock publish for development/testing without real tokens."""
